@@ -62,7 +62,7 @@ h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); margin: 0 0 8px; }
   background: radial-gradient(circle at 30% 30%, var(--accent-soft), var(--surface));
   border: 1px solid var(--line);
   display: grid; place-items: center; overflow: hidden;
-  align-self: start; margin-top: -28px;
+  align-self: start; margin-top: -12px;
 }
 .portrait span { font-family: "Fraunces", Georgia, serif; font-size: 3.5rem; color: var(--accent); }
 .portrait img { width: 100%; height: 100%; object-fit: cover; }
