@@ -98,7 +98,7 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .tags span { background: var(--accent-soft); color: var(--accent); font-size: 0.78rem; padding: 3px 10px; border-radius: 999px; }
 
-.pubs { padding-left: 20px; margin: 0 0 16px; }
+.pubs { list-style: none; padding-left: 0; margin: 0 0 16px; }
 .pubs li { margin-bottom: 14px; }
 .pubs span { display: inline; }
 .pubs .title { font-weight: 500; }
