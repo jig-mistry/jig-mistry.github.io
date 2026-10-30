@@ -26,6 +26,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 72px; }
 
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font: 400 17px/1.65 "Inter", system-ui, sans-serif;
@@ -118,4 +119,32 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   .grid.two, .grid.three { grid-template-columns: 1fr; }
   .nav nav { gap: 14px; }
   .brand { display: none; }
+}
+
+/* Animated neuron background (assets/neuro.js inserts canvas.neuro) */
+.neuro {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: .9;
+}
+
+/* Translucent plates keep text readable while spikes travel underneath */
+.hero, .section, .footer {
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 18px;
+  width: calc(100% - 32px);
+  margin: 20px auto;
+  padding: 36px 32px;
+}
+.hero { margin-top: 32px; padding-top: 48px; padding-bottom: 48px; }
+.footer { padding: 18px 32px; text-align: center; }
+
+@media (max-width: 760px) {
+  .hero, .section, .footer { padding: 24px 20px; }
+  .hero { padding-top: 28px; }
 }
