@@ -223,6 +223,8 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 /* Zoom from a whole section down to cells, and a scrubbed frame sequence */
 .zoom-block { height: 300vh; position: relative; }
 .scrub-block { height: 260vh; position: relative; }
+/* a keyframe pinned to the bottom of a tall block, so the brain stays hidden until the block is done */
+.scene-mark { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; pointer-events: none; }
 .zoomer, .scrubber {
   position: sticky; top: 76px; margin: 0;
   height: calc(100vh - 96px); display: grid; grid-template-rows: 1fr auto; gap: 12px;
