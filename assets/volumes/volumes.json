@@ -1,0 +1,112 @@
+{
+ "axes": "u: left->right, v: inferior->superior, w: posterior->anterior; uint8 pairs (density, depth), C order [w][v][u][2], gzip",
+ "credit": "DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline; BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
+ "volumes": [
+  {
+   "id": "dharani_14gw",
+   "file": "dharani_14gw.bin.gz",
+   "dims": [
+    79,
+    100,
+    127
+   ],
+   "spacing_mm": 0.36,
+   "size_mm": [
+    28.44,
+    36.0,
+    45.72
+   ],
+   "gw": 14,
+   "subject": "sub-001",
+   "brain": "FB40"
+  },
+  {
+   "id": "dharani_17gw",
+   "file": "dharani_17gw.bin.gz",
+   "dims": [
+    109,
+    142,
+    130
+   ],
+   "spacing_mm": 0.36,
+   "size_mm": [
+    39.24,
+    51.12,
+    46.8
+   ],
+   "gw": 17,
+   "subject": "sub-002",
+   "brain": "FB74"
+  },
+  {
+   "id": "dharani_21gw",
+   "file": "dharani_21gw.bin.gz",
+   "dims": [
+    146,
+    160,
+    166
+   ],
+   "spacing_mm": 0.36,
+   "size_mm": [
+    52.56,
+    57.6,
+    59.76
+   ],
+   "gw": 21,
+   "subject": "sub-003",
+   "brain": "FB34"
+  },
+  {
+   "id": "dharani_22gw",
+   "file": "dharani_22gw.bin.gz",
+   "dims": [
+    129,
+    159,
+    159
+   ],
+   "spacing_mm": 0.36,
+   "size_mm": [
+    46.44,
+    57.24,
+    57.24
+   ],
+   "gw": 22,
+   "subject": "sub-004",
+   "brain": "FB62"
+  },
+  {
+   "id": "dharani_24gw",
+   "file": "dharani_24gw.bin.gz",
+   "dims": [
+    170,
+    210,
+    190
+   ],
+   "spacing_mm": 0.36,
+   "size_mm": [
+    61.2,
+    75.6,
+    68.4
+   ],
+   "gw": 24,
+   "subject": "sub-005",
+   "brain": "FB85"
+  },
+  {
+   "id": "bigbrain",
+   "file": "bigbrain.bin.gz",
+   "dims": [
+    222,
+    181,
+    253
+   ],
+   "spacing_mm": 0.6,
+   "size_mm": [
+    133.2,
+    108.6,
+    151.8
+   ],
+   "name": "BigBrain"
+  }
+ ]
+}
