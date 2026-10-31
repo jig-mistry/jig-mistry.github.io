@@ -173,8 +173,11 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 /* Nav spans the full width: name at the left edge, links at the right edge */
 .nav .nav-inner { max-width: none; padding: 0 clamp(16px, 3vw, 44px); }
 
-/* Hero: text on a plate at the left edge, the brain on the right */
-.hero.wrap { max-width: none; width: 100%; margin: 0; padding-left: clamp(16px, 3vw, 44px); padding-right: clamp(16px, 3vw, 44px); }
+/* Hero: text on a plate on the left, the brain on the right.  The hero, About and the research intro
+   share the left edge of the research chapters (the 1240 px column below). */
+.hero.wrap { max-width: 1240px; width: 100%; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+.wrap.wide { max-width: 1240px; }
+#about.about { width: min(860px, calc(100% - 40px)); margin-left: max(20px, calc((100% - 1240px) / 2 + 20px)); margin-right: auto; }
 .hero {
   background: transparent; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
   display: block; position: relative; min-height: calc(100vh - 90px);
