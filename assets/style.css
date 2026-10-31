@@ -105,10 +105,15 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .pubs .venue { color: var(--muted); font-style: italic; }
 .pubs .links { display: block; font-size: 0.9rem; }
 
-.contact { list-style: none; padding: 0; margin: 0; }
-.contact li { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.contact li span { width: 90px; flex: none; color: var(--muted); }
-.contact a { overflow-wrap: anywhere; }
+/* contact as chips: icon + label, several on a line */
+.contact { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.contact a {
+  display: inline-flex; align-items: center; gap: 9px; padding: 9px 16px 9px 12px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--text); font-size: .94rem; overflow-wrap: anywhere; transition: border-color .15s, transform .15s;
+}
+.contact a:hover { border-color: var(--accent); text-decoration: none; transform: translateY(-1px); }
+.contact svg { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 
 .footer { padding-top: 28px; padding-bottom: 40px; color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--line); }
 
