@@ -125,6 +125,10 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   .nav nav { gap: 14px; }
   .brand { display: none; }
 }
+@media (max-width: 420px) {
+  .nav nav { gap: 12px; }
+  .nav nav a { font-size: 0.85rem; }
+}
 
 /* Animated neuron background (assets/neuro.js inserts canvas.neuro) */
 .neuro {
@@ -217,6 +221,9 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .about { display: grid; grid-template-columns: 160px 1fr; gap: 32px; align-items: start; }
 .about .portrait { width: 160px; height: 160px; margin: 0; }
 .about h2 { margin-top: 0; }
+.about .about-sub { font-size: 1rem; margin: 26px 0 8px; }
+.recent { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .92rem; color: var(--muted); }
+.recent strong { color: var(--text); font-weight: 600; }
 
 /* Research story: wider than the reading column so figures have room */
 .research { padding-top: 20px; }
