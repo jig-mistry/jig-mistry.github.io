@@ -170,7 +170,11 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .no-webgl .brainvol-poster { opacity: 1; }
 @media (max-width: 760px) { .brainvol-poster { width: 90vw; right: -10vw; opacity: .5; } }
 
-/* Hero: text on a plate on the left, the brain on the right */
+/* Nav spans the full width: name at the left edge, links at the right edge */
+.nav .nav-inner { max-width: none; padding: 0 clamp(16px, 3vw, 44px); }
+
+/* Hero: text on a plate at the left edge, the brain on the right */
+.hero.wrap { max-width: none; width: 100%; margin: 0; padding-left: clamp(16px, 3vw, 44px); padding-right: clamp(16px, 3vw, 44px); }
 .hero {
   background: transparent; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
   display: block; position: relative; min-height: calc(100vh - 90px);
@@ -186,8 +190,10 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .hero-facts { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 6px; font-size: .92rem; color: var(--muted); }
 .hero-facts strong { color: var(--text); font-weight: 600; }
 .stage-caption {
-  position: absolute; right: 24px; bottom: 4vh; max-width: 300px; margin: 0;
-  font-size: .82rem; color: var(--muted); text-align: right;
+  position: absolute; right: clamp(16px, 6vw, 110px); bottom: 5vh; max-width: 340px; margin: 0;
+  font-size: .8rem; color: var(--muted); text-align: center;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px;
 }
 
 .about { display: grid; grid-template-columns: 160px 1fr; gap: 32px; align-items: start; }
