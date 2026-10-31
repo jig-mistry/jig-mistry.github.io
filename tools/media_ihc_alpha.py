@@ -1,4 +1,4 @@
-"""Three-colour immunostained crop of the fetal cortical wall with the glass made transparent.
+"""Three-colour immunostained crop of the fetal cortical wall with the glass cleaned to pure black (or transparent).
 
 Right of the blue pial band is glass with sparse coloured specks.  Tissue = blurred signal above threshold, largest
 piece, holes filled; the alpha comes from a smoothed signed distance to that outline (smooth, anti-aliased edge).
@@ -30,7 +30,13 @@ d = ndi.distance_transform_edt(m) - ndi.distance_transform_edt(~m)
 d = ndi.gaussian_filter(d.astype(np.float32), 5.0)[P:-P, P:]
 m = m[P:-P, P:]
 alpha = np.clip(0.5 + d / 1.1, 0, 1)
-im = Image.fromarray(np.dstack([a, (alpha * 255).round()]).astype(np.uint8), "RGBA")
-im.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
-im.save(f"{SITE}/assets/img/cyto/ihc_layers.webp", quality=82, alpha_quality=80, method=6)
+# BG=black (default): glass painted pure black, so the image keeps its rectangle; BG=none: transparent glass
+if os.environ.get("BG", "black") == "black":
+    im = Image.fromarray((a.astype(np.float32) * alpha[..., None]).round().astype(np.uint8), "RGB")
+    im.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+    im.save(f"{SITE}/assets/img/cyto/ihc_layers.webp", quality=82, method=6)
+else:
+    im = Image.fromarray(np.dstack([a, (alpha * 255).round()]).astype(np.uint8), "RGBA")
+    im.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+    im.save(f"{SITE}/assets/img/cyto/ihc_layers.webp", quality=82, alpha_quality=80, method=6)
 print(im.size, "tissue", round(m.mean(), 3), "threshold", thr, os.path.getsize(f"{SITE}/assets/img/cyto/ihc_layers.webp") // 1024, "KB")
