@@ -182,8 +182,10 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   margin-left: max(0px, calc((100% - 1240px) / 2 - var(--shift))); margin-right: auto;
 }
 .hero.wrap { padding-left: 20px; padding-right: 20px; margin-top: 0; margin-bottom: 0; }
+#about.about { width: min(920px, calc(100% - 40px)); }
+/* the blocks after the research figures run to the same right edge as the figure grid (1200 px of content) */
+#projects, #publications, #contact, .footer.wrap { width: min(1200px, calc(100% - 40px)); max-width: none; }
 #about.about, #projects, #publications, #contact, .footer.wrap {
-  width: min(920px, calc(100% - 40px));
   margin-left: max(20px, calc((100% - 1240px) / 2 - var(--shift) + 20px)); margin-right: auto;
 }
 .hero {
@@ -317,4 +319,3 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   .zoomer, .scrubber { top: 66px; height: calc(100vh - 80px); }
 }
 .wrap.wide > .section { margin-left: 0; margin-right: auto; width: 100%; }
-.wrap.wide > .section.also { max-width: 920px; }
