@@ -328,9 +328,6 @@
   </footer>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    // preview helper: ?shift=0 (or any px) overrides how far the column sits left of centre
-    const shift = new URLSearchParams(location.search).get('shift');
-    if (shift !== null && !isNaN(+shift)) document.documentElement.style.setProperty('--shift', (+shift) + 'px');
   </script>
   <!-- Animated neuronal network background (creates its own canvas) -->
   <script src="assets/neuro.js"></script>
