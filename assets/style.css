@@ -222,6 +222,7 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .about .portrait { width: 160px; height: 160px; margin: 0; }
 .about h2 { margin-top: 0; }
 .about .about-sub { font-size: 1rem; margin: 26px 0 8px; }
+.about .tagline { font-family: "Fraunces", Georgia, serif; font-weight: 500; font-size: 1.35rem; line-height: 1.35; margin: -6px 0 16px; }
 .recent { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .92rem; color: var(--muted); }
 .recent strong { color: var(--text); font-weight: 600; }
 
