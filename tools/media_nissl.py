@@ -40,7 +40,7 @@ J62 = "/home/users/jignesh/analytics/213/NISL/B_213_FB62-SL_397-ST_NISL-SE_1189_
 strip = jp2(J62, 2, (14133, 2800, 17133, 18800)).rotate(90, expand=True)
 strip = strip.crop((int(strip.width * 0.12), 0, strip.width, strip.height))      # drop most of the empty glass
 save(strip, f"{SITE}/assets/img/cyto/wall_strip.webp", 3200)
-save(jp2(J62, 0, (14933, 5900, 16333, 7300)).rotate(90, expand=True), f"{SITE}/assets/img/cyto/cp_cells.webp", 1400)
+save(jp2(J62, 0, (14833, 5960, 16433, 7240)).rotate(90, expand=True), f"{SITE}/assets/img/cyto/cp_cells.webp", 1600)   # 4:5, like ihc_layers
 
 # ---- three-colour immunofluorescence-style panel (markers deliberately not named) ----
 P1 = "/home/users/jignesh/neuroglancer/ihc7_panels_registered/panel1_NeuN-green_CTIP2-red_Reelin-blue_0p5um.tif"

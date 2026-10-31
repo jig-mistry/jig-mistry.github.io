@@ -54,6 +54,7 @@ metas = []
 orient = json.load(open(f"{SB}/site_build/dharani/orient.json"))
 info = json.load(open(f"{SB}/site_build/dharani/info.json"))
 SP = 0.36
+TURN_CW = {"sub-001"}
 for sub in ["sub-001", "sub-002", "sub-003", "sub-004", "sub-005"]:
     d = np.load(f"{SB}/site_build/dharani/{sub}_032.npy")
     if sub == "sub-004":
@@ -73,6 +74,8 @@ for sub in ["sub-001", "sub-002", "sub-003", "sub-004", "sub-005"]:
     # rows: y down = inferior, cols: x right = posterior  ->  v = -y, w = -x, u = axis 0
     vol = finish(np.clip(dens, 0, 1) ** 0.85, mask, SP, 1.6)          # (u, y, x, 2)
     vol = vol[:, ::-1, ::-1].transpose(2, 1, 0, 3)                   # (w, v, u, 2)
+    if sub in TURN_CW:   # silhouette fit left this one 90 deg off (checked by eye): turn it clockwise in the side view
+        vol = np.ascontiguousarray(np.rot90(vol, k=-1, axes=(0, 1)))
     metas.append(write(f"dharani_{info[sub]['gw']:02d}gw", vol, SP,
                        dict(gw=info[sub]["gw"], subject=sub, brain=info[sub]["brain"])))
 
