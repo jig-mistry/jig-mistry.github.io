@@ -142,7 +142,7 @@
         </figure>
       </div>
 
-      <div class="wrap">
+      <div class="wrap wide">
         <figure class="figure ge3d section" data-scene='{"fade":0}'>
           <img src="assets/img/ge/ge_rotate.webp" alt="Rotating 3D reconstruction of the ganglionic eminence inside a translucent fetal brain" loading="lazy" width="720" height="720">
           <figcaption>
@@ -228,7 +228,7 @@
         </div>
       </div>
 
-      <div class="wrap">
+      <div class="wrap wide">
         <div class="section also">
           <h3>Also</h3>
           <div class="grid two">
@@ -326,7 +326,12 @@
       downsampled for the web. Immunostained and myelin images are from unpublished work and are shown without marker names.
     </p>
   </footer>
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    // preview helper: ?shift=0 (or any px) overrides how far the column sits left of centre
+    const shift = new URLSearchParams(location.search).get('shift');
+    if (shift !== null && !isNaN(+shift)) document.documentElement.style.setProperty('--shift', (+shift) + 'px');
+  </script>
   <!-- Animated neuronal network background (creates its own canvas) -->
   <script src="assets/neuro.js"></script>
   <script src="assets/js/brainvol.js"></script>

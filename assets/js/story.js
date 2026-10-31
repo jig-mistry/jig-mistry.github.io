@@ -68,8 +68,10 @@
       const vh = vw * H / W;
       const s = W / vw;                               // canvas px per unit
       const x0 = cx - vw / 2, y0 = cy - vh / 2;
-      ctx.fillStyle = fig.classList.contains('dark') ? '#000' : '#fff';
-      ctx.fillRect(0, 0, W, H);
+      if (fig.classList.contains('dark')) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+      else ctx.clearRect(0, 0, W, H);                // tissue only: the glass is transparent in the images
+      // the frame around the view fades in as the zoom starts, so the zoomed view reads as a window
+      fig.style.setProperty('--frame', smooth(0.15, 0.45, p).toFixed(3));
       ctx.imageSmoothingQuality = 'high';
       for (const l of levels) {
         if (!l.img) continue;
