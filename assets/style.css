@@ -175,8 +175,8 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 
 /* Hero: text on a plate on the left, the brain on the right.  The hero, About and the research intro
    share the left edge of the research chapters (the 1240 px column below). */
-/* --shift moves the whole 1240 px column left of centre (try ?shift=0 in the URL to compare) */
-:root { --shift: 100px; }
+/* --shift moves the whole 1240 px column left of centre (0 = centred) */
+:root { --shift: 0px; }
 .hero.wrap, .wrap.wide, .chapter.wrap, .zoom-block.wrap, .scrub-block.wrap, .cyto-figs.wrap {
   max-width: 1240px; width: 100%;
   margin-left: max(0px, calc((100% - 1240px) / 2 - var(--shift))); margin-right: auto;
@@ -250,7 +250,10 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   width: 100%; height: 100%; display: block; border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); background: #fff;
 }
-.zoomer.dark canvas { background: #000; }
+.zoomer.dark canvas {
+  background: color-mix(in srgb, #000 calc(var(--frame, 0) * 100%), transparent);
+  border-color: color-mix(in srgb, var(--line) calc(var(--frame, 0) * 100%), transparent);
+}
 .scrubber canvas { max-width: 100%; max-height: 100%; width: auto; height: 100%; display: block; }
 .zoomer figcaption, .scrubber figcaption, .figure figcaption {
   font-size: .9rem; color: var(--muted); max-width: 70ch;
@@ -262,8 +265,9 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
   font-size: .8rem; color: #fff; text-shadow: 0 0 4px #000; pointer-events: none;
 }
 .scalebar i { display: block; height: 3px; background: #fff; box-shadow: 0 0 3px #000; border-radius: 2px; }
-.zoomer:not(.dark) .scalebar { color: var(--text); text-shadow: 0 0 4px var(--bg); }
-.zoomer:not(.dark) .scalebar i { background: var(--text); box-shadow: 0 0 3px var(--bg); }
+/* the scale bar follows the page colours until a black frame is behind it */
+.zoomer:not(.dark) .scalebar, .zoomer.dark:not(.framed) .scalebar { color: var(--text); text-shadow: 0 0 4px var(--bg); }
+.zoomer:not(.dark) .scalebar i, .zoomer.dark:not(.framed) .scalebar i { background: var(--text); box-shadow: 0 0 3px var(--bg); }
 /* tissue-only zoom: no box at first, the frame appears as it zooms in (--frame set by story.js) */
 .zoomer:not(.dark) canvas {
   background: color-mix(in srgb, var(--surface) calc(var(--frame, 0) * 100%), transparent);
