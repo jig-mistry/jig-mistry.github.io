@@ -14,11 +14,16 @@
      cut    0..1 octant cut-away       clip     0..1 fraction of the clip slab removed
      clipx  clip plane position along x, as a fraction of the half width (-1..1)
      tx, ty, tz  look-at point, as a fraction of the half size     fade  0..1 opacity
+     hd     0..1 weight of the real sections on the octant cut faces (data-cutfaces)
 
    A cut face can carry a real section: data-face='{"vol", "src", "clipx"}' on the canvas names an
    image (density in the grey channels, tissue in alpha, rows = y, columns = z of the volume box)
    that is drawn on the clip plane once the plane reaches clipx, so the cut shows the section at
    full resolution instead of the coarse volume.
+
+   The octant cut can carry real sections too: data-cutfaces='{"vol", "x", "y", "z"}' names three images
+   through the middle of the volume box (x: rows = y, columns = z; y: rows = z, columns = x; z: rows = y,
+   columns = x), drawn where the cut planes meet in the middle (cut = 1) and the scene's hd is up.
 */
 (() => {
   'use strict';
@@ -34,7 +39,7 @@
   const still = new URLSearchParams(location.search).has('still');     // no idle drift (screenshots)
   const keys = [...document.querySelectorAll('[data-scene]')];
   const DEFAULTS = { vol: 'bigbrain', az: 30, el: 15, dist: 3.4, sx: 0.4, sy: 0, cut: 0, clip: 0, clipx: -1,
-                     tx: 0, ty: 0, tz: 0, fade: 1 };
+                     tx: 0, ty: 0, tz: 0, fade: 1, hd: 0 };
   const NUM = Object.keys(DEFAULTS).filter((k) => k !== 'vol');
 
   // resolve keyframes: every key carries the full state
@@ -100,6 +105,10 @@ uniform vec3 uLight;
 uniform float uDark;                 // 1 on a dark page
 uniform sampler2D uFace;             // section drawn on the clip plane
 uniform float uFaceOn, uFaceLod;     // its weight (0 = off) and mip level
+uniform sampler2D uCutX, uCutY, uCutZ;   // sections through the middle of the box, drawn on the octant cut faces
+uniform float uCutOn;                // their weight (0 = off)
+uniform vec3 uCutTexel;              // world size of a texel on each
+uniform float uPix;                  // world size of a screen pixel at unit distance
 in vec2 vNdc; out vec4 outColor;
 
 float rnd(vec2 p) { return fract(sin(dot(p, vec2(41.31, 289.17))) * 15731.743); }
@@ -156,7 +165,35 @@ void main() {
       acc = vec4(mix(palette(uPalA, f.r), shellCol, skin * 0.85) * a, a);
     }
   }
+  // where the ray leaves the cut-away octant through one of its inner faces, that face's section is drawn
+  float tq = -1.0;
+  int qa = -1;
+  if (uCutOn > 0.001) {
+    vec3 c = hs * (1.0 - uCut);
+    float lo = -1e9, hi = 1e9;
+    for (int i = 0; i < 3; i++) {
+      float d = dir[i] * uCutSign[i], e = uEye[i] * uCutSign[i];
+      if (abs(d) < 1e-6) { if (e < c[i]) hi = -1e9; continue; }
+      float ti = (c[i] - e) / d;
+      if (d > 0.0) lo = max(lo, ti);
+      else if (ti < hi) { hi = ti; qa = i; }
+    }
+    if (lo < hi && hi > max(tn, 0.0) && hi < tf) tq = hi; else qa = -1;
+  }
   for (int i = 0; i < 900; i++) {
+    if (qa >= 0 && t >= tq) {
+      vec3 p = uEye + dir * tq;
+      vec3 tc = p / (2.0 * hs) + 0.5;
+      // mip level from the pixel footprint on the face, wider where it is seen edge-on
+      float lod = max(0.0, log2(tq * uPix / max(abs(dir[qa]), 0.25) / uCutTexel[qa]));
+      vec4 f = qa == 0 ? textureLod(uCutX, tc.zy, lod) : qa == 1 ? textureLod(uCutY, tc.xz, lod) : textureLod(uCutZ, tc.xy, lod);
+      vec2 v = sampleAt(p + dir * 1e-4);
+      float a = f.a * uCutOn * smoothstep(0.0, 0.006, v.r);
+      float skin = 1.0 - smoothstep(0.05, 0.35, v.g);
+      acc.rgb += (1.0 - acc.a) * a * mix(palette(uPalA, f.r), shellCol, skin * 0.85);
+      acc.a += (1.0 - acc.a) * a;
+      qa = -1;
+    }
     if (t > tf || acc.a > 0.97) break;
     vec3 p = uEye + dir * t;
     if (!removed(p, hs)) {
@@ -217,6 +254,7 @@ void main() {
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   gl.uniform1i(U.uVolA, 0); gl.uniform1i(U.uVolB, 1); gl.uniform1i(U.uFace, 2);
+  gl.uniform1i(U.uCutX, 3); gl.uniform1i(U.uCutY, 4); gl.uniform1i(U.uCutZ, 5);
 
   // ---------------- volumes ----------------
   const vols = {};          // id -> {meta, half, tex}
@@ -241,28 +279,37 @@ void main() {
 
   let face = null;          // {vol, src, clipx, tex, rows}
   try { face = canvas.dataset.face ? JSON.parse(canvas.dataset.face) : null; } catch (e) { console.warn('bad data-face', e); }
-  function loadFace() {
+  let cuts = null;          // {vol, x, y, z, rows: {x, y, z}, ready}
+  try { cuts = canvas.dataset.cutfaces ? JSON.parse(canvas.dataset.cutfaces) : null; } catch (e) { console.warn('bad data-cutfaces', e); }
+  if (cuts) Object.assign(cuts, { rows: {}, ready: 0 });
+
+  // a section image on its own texture unit; grey + alpha is all it holds: half the memory of RGBA
+  function loadSection(src, unit, done) {
     const img = new Image();
     img.onload = () => {
       const tex = gl.createTexture();
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-      // grey + alpha is all it holds: half the memory of RGBA
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, img);
       gl.generateMipmap(gl.TEXTURE_2D);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
                             [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-      face.tex = tex; face.rows = img.height; dirty = true;
+      done(tex, img); dirty = true;
     };
-    img.onerror = () => console.warn('brainvol: could not load', face.src);
-    img.src = face.src;
+    img.onerror = () => console.warn('brainvol: could not load', src);
+    img.src = src;
+  }
+  function loadFace() { loadSection(face.src, 2, (tex, img) => { face.tex = tex; face.rows = img.height; }); }
+  function loadCuts() {
+    ['x', 'y', 'z'].forEach((k, i) => loadSection(cuts[k], 3 + i, (tex, img) => { cuts.rows[k] = img.height; cuts.ready++; }));
   }
 
   async function load() {
     empty = texture([1, 1, 1], new Uint8Array(2));
-    if (face) {     // until the section arrives, unit 2 holds a transparent pixel
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+    // until the sections arrive, their units hold a transparent pixel
+    for (const unit of [face && 2, cuts && 3, cuts && 4, cuts && 5].filter(Boolean)) {
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
     }
     const index = await (await fetch(BASE + 'volumes.json')).json();
@@ -279,6 +326,7 @@ void main() {
         dirty = true;
       } catch (e) { console.warn('brainvol: could not load', id, e); }
     }
+    if (cuts && vols[cuts.vol]) loadCuts();     // last: they are only needed far down the page
   }
 
   // ---------------- drawing ----------------
@@ -320,7 +368,12 @@ void main() {
       const off = Math.abs(lerp(-half[0] * 1.05, S.clipx * half[0], S.clip) - face.clipx * half[0]);
       faceOn = 1 - ease(Math.min(1, off / (3 * MM)));
     }
-    if ((faceOn > 0.5) !== sharp) { sharp = faceOn > 0.5; resize(); }
+    // weight of the octant cut sections: full once the cut planes meet in the middle, gone 3 mm before
+    let cutOn = 0;
+    if (cuts && cuts.ready === 3 && a.vol === cuts.vol && b.vol === cuts.vol && S.cut > 0.001 && S.hd > 0.001) {
+      cutOn = S.hd * (1 - ease(Math.min(1, Math.max(...half) * (1 - S.cut) / (3 * MM))));
+    }
+    if ((faceOn > 0.5 || cutOn > 0.5) !== sharp) { sharp = !sharp; resize(); }
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -358,6 +411,11 @@ void main() {
     if (faceOn > 0) {     // mip level from the size of a screen pixel on the face against a texel
       const px = S.dist * 2 * Math.tan(fov / 2) / canvas.height, texel = 2 * half[1] / face.rows;
       gl.uniform1f(U.uFaceLod, Math.max(0, Math.log2(px / texel)));
+    }
+    gl.uniform1f(U.uCutOn, cutOn);
+    if (cutOn > 0) {
+      gl.uniform1f(U.uPix, 2 * Math.tan(fov / 2) / canvas.height);
+      gl.uniform3f(U.uCutTexel, 2 * half[1] / cuts.rows.x, 2 * half[2] / cuts.rows.y, 2 * half[1] / cuts.rows.z);
     }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }

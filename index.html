@@ -28,7 +28,8 @@
 
   <!-- whole brains, volume-rendered behind the page and driven by scroll (assets/js/brainvol.js) -->
   <canvas id="brainvol" class="brainvol" data-volumes="assets/volumes/" aria-hidden="true"
-          data-face='{"vol":"dharani_24gw","src":"assets/img/ge/face_24gw.webp","clipx":-0.42}'></canvas>
+          data-face='{"vol":"dharani_24gw","src":"assets/img/ge/face_24gw.webp","clipx":-0.42}'
+          data-cutfaces='{"vol":"bigbrain","x":"assets/img/cyto/bb_cut_x.webp","y":"assets/img/cyto/bb_cut_y.webp","z":"assets/img/cyto/bb_cut_z.webp"}'></canvas>
 
   <main id="top">
     <section class="hero wrap" data-scene='{"vol":"bigbrain","az":-38,"el":16,"dist":3.7,"sx":0.47,"sy":-0.02,"cut":1,"clip":0,"tx":0,"ty":0,"tz":0,"fade":1}'>
@@ -223,7 +224,7 @@
             neighbouring sections line up inside the tissue, not just at the outline.
           </figcaption>
         </figure>
-        <span class="scene-mark" data-scene='{"fade":0}'></span>
+        <span class="scene-mark" data-scene='{"fade":0,"vol":"bigbrain"}'></span>
       </div>
 
       <!-- 5. Cytoarchitecture: BigBrain comes back, cut open -->
@@ -235,7 +236,7 @@
           <p class="muted small">Behind: BigBrain again, cut open. Below: the layered wall of the fetal cortex, from Nissl and from immunostaining.</p>
         </div>
         <div class="steps">
-          <div class="step" data-scene='{"vol":"bigbrain","az":-128,"el":24,"dist":3.2,"sx":0.32,"sy":0,"cut":1,"clip":0,"tx":0,"ty":0,"tz":0,"fade":1}'></div>
+          <div class="step" data-scene='{"vol":"bigbrain","az":-128,"el":24,"dist":3.2,"sx":0.32,"sy":0,"cut":1,"clip":0,"tx":0,"ty":0,"tz":0,"fade":1,"hd":1}'></div>
           <div class="step" data-scene='{"az":-150,"el":18,"dist":2.6,"sx":0.3,"cut":1,"fade":0.9}'></div>
         </div>
       </article>
@@ -264,7 +265,7 @@
       </div>
     </section>
 
-    <section id="projects" class="wrap section" data-scene='{"vol":"bigbrain","az":-200,"el":16,"dist":3.6,"sx":0.5,"cut":0,"clip":0,"fade":0.3}'>
+    <section id="projects" class="wrap section" data-scene='{"vol":"bigbrain","az":-200,"el":16,"dist":3.6,"sx":0.5,"cut":0,"clip":0,"fade":0.3,"hd":0}'>
       <h2>Projects</h2>
       <div class="grid three">
         <a class="card project" href="https://github.com/jig-mistry/whereismyslice">
