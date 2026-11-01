@@ -54,7 +54,7 @@ metas = []
 orient = json.load(open(f"{SB}/site_build/dharani/orient.json"))
 info = json.load(open(f"{SB}/site_build/dharani/info.json"))
 SP = 0.36
-TURN_CW = {"sub-001"}
+TURN_CW = set()     # the old mcmadras sub-001 needed {"sub-001"}; the VALIS stack fits without it
 ONLY = [x for x in os.environ.get("ONLY", "").split(",") if x]     # e.g. ONLY=sub-002: rebuild that brain only
 for sub in ["sub-001", "sub-002", "sub-003", "sub-004", "sub-005"]:
     if ONLY and sub not in ONLY: continue
@@ -103,5 +103,5 @@ vol = vol.transpose(1, 2, 0, 3)                                     # (A, S, R, 
 metas.append(write("bigbrain", vol, 0.6, dict(name="BigBrain")))
 
 json.dump(dict(axes="u: left->right, v: inferior->superior, w: posterior->anterior; uint8 pairs (density, depth), C order [w][v][u][2], gzip",
-               credit="DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline; BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
+               credit="DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline (14 weeks: VALIS); BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
                volumes=metas), open(f"{OUT}/volumes.json", "w"), indent=1)

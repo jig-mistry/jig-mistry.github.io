@@ -19,7 +19,7 @@ Edit `index.html` (content) and `assets/style.css` (styling). Put your CV at `as
 ## Data
 
 - `assets/volumes/`: BigBrain (200 µm release, downsampled to 0.6 mm) and the five DHARANI fetal brains
-  (mcmadras stacks, 0.36 mm), as gzip'd uint8 pairs (density, depth below the surface). See `volumes.json`.
+  (mcmadras stacks; 14 GW from the lab's VALIS reconstruction, `tools/prep_fb40_valis.py`; 0.36 mm), as gzip'd uint8 pairs (density, depth below the surface). See `volumes.json`.
 - `assets/img/`: section images, zoom levels and renders. Immunostained and myelin images are shown without marker names.
 - `tools/`: the scripts that made these files on the lab workstation (paths are local to that machine).
 
