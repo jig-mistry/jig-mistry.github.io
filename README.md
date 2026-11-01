@@ -12,7 +12,9 @@ Edit `index.html` (content) and `assets/style.css` (styling). Put your CV at `as
   clip plane, fade); the scene is interpolated between keyframes as the page scrolls. Add `?still` to the URL to
   stop the idle drift (useful for screenshots).
   The canvas's `data-face` names a real section image that is drawn on the clip plane once the plane reaches it
-  (the 24-week ganglionic-eminence cut; made by `tools/media_ge_face.py`).
+  (the 24-week ganglionic-eminence cut; made by `tools/media_ge_face.py`). `data-cutfaces` does the same for
+  BigBrain's octant cut: three 100 µm planes through the middle of the box, shown where a scene sets `hd`
+  (the cytoarchitecture chapter; made by `tools/media_bigbrain_faces.py`).
 - `assets/js/story.js` drives the scroll zooms (`.zoomer`, nested image levels described by a JSON file), the frame
   scrubber (`.scrubber`) and the gestational-age ruler.
 
