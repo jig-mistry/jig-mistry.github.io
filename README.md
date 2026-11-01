@@ -11,6 +11,8 @@ Edit `index.html` (content) and `assets/style.css` (styling). Put your CV at `as
   Every element with a `data-scene='{...}'` attribute is a keyframe (volume, camera angle, distance, cut-away,
   clip plane, fade); the scene is interpolated between keyframes as the page scrolls. Add `?still` to the URL to
   stop the idle drift (useful for screenshots).
+  The canvas's `data-face` names a real section image that is drawn on the clip plane once the plane reaches it
+  (the 24-week ganglionic-eminence cut; made by `tools/media_ge_face.py`).
 - `assets/js/story.js` drives the scroll zooms (`.zoomer`, nested image levels described by a JSON file), the frame
   scrubber (`.scrubber`) and the gestational-age ruler.
 
