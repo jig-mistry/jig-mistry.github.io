@@ -14,6 +14,11 @@
      cut    0..1 octant cut-away       clip     0..1 fraction of the clip slab removed
      clipx  clip plane position along x, as a fraction of the half width (-1..1)
      tx, ty, tz  look-at point, as a fraction of the half size     fade  0..1 opacity
+
+   A cut face can carry a real section: data-face='{"vol", "src", "clipx"}' on the canvas names an
+   image (density in the grey channels, tissue in alpha, rows = y, columns = z of the volume box)
+   that is drawn on the clip plane once the plane reaches clipx, so the cut shows the section at
+   full resolution instead of the coarse volume.
 */
 (() => {
   'use strict';
@@ -93,6 +98,8 @@ uniform float uClipX;                // clip plane x, world units
 uniform float uStep, uFade;
 uniform vec3 uLight;
 uniform float uDark;                 // 1 on a dark page
+uniform sampler2D uFace;             // section drawn on the clip plane
+uniform float uFaceOn, uFaceLod;     // its weight (0 = off) and mip level
 in vec2 vNdc; out vec4 outColor;
 
 float rnd(vec2 p) { return fract(sin(dot(p, vec2(41.31, 289.17))) * 15731.743); }
@@ -136,6 +143,19 @@ void main() {
   float t = max(tn, 0.0) + uStep * rnd(gl_FragCoord.xy);
   vec4 acc = vec4(0.0);
   vec3 shellCol = mix(vec3(0.60, 0.61, 0.63), vec3(0.70, 0.70, 0.72), uDark);
+  if (uFaceOn > 0.001 && dir.x > 1e-4) {
+    // the real section on the cut face; the volume behind shows through where it is transparent
+    float tp = (mix(-hs.x * 1.05, uClipX, uClip) - uEye.x) / dir.x;
+    if (tp > max(tn, 0.0) && tp < tf) {
+      vec3 p = uEye + dir * tp;
+      vec3 tc = p / (2.0 * hs) + 0.5;
+      vec4 f = textureLod(uFace, tc.zy, uFaceLod);
+      vec2 v = sampleAt(p + dir * 1e-4);
+      float a = f.a * uFaceOn * smoothstep(0.0, 0.006, v.r);
+      float skin = 1.0 - smoothstep(0.05, 0.35, v.g);
+      acc = vec4(mix(palette(uPalA, f.r), shellCol, skin * 0.85) * a, a);
+    }
+  }
   for (int i = 0; i < 900; i++) {
     if (t > tf || acc.a > 0.97) break;
     vec3 p = uEye + dir * t;
@@ -196,7 +216,7 @@ void main() {
   const loc = gl.getAttribLocation(prog, 'aPos');
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-  gl.uniform1i(U.uVolA, 0); gl.uniform1i(U.uVolB, 1);
+  gl.uniform1i(U.uVolA, 0); gl.uniform1i(U.uVolB, 1); gl.uniform1i(U.uFace, 2);
 
   // ---------------- volumes ----------------
   const vols = {};          // id -> {meta, half, tex}
@@ -219,8 +239,32 @@ void main() {
     return tex;
   }
 
+  let face = null;          // {vol, src, clipx, tex, rows}
+  try { face = canvas.dataset.face ? JSON.parse(canvas.dataset.face) : null; } catch (e) { console.warn('bad data-face', e); }
+  function loadFace() {
+    const img = new Image();
+    img.onload = () => {
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      // grey + alpha is all it holds: half the memory of RGBA
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, img);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                            [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      face.tex = tex; face.rows = img.height; dirty = true;
+    };
+    img.onerror = () => console.warn('brainvol: could not load', face.src);
+    img.src = face.src;
+  }
+
   async function load() {
     empty = texture([1, 1, 1], new Uint8Array(2));
+    if (face) {     // until the section arrives, unit 2 holds a transparent pixel
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+    }
     const index = await (await fetch(BASE + 'volumes.json')).json();
     for (const m of index.volumes) {
       vols[m.id] = { meta: m, half: m.size_mm.map((x) => x * MM / 2), tex: null, pal: m.id === 'bigbrain' ? 0 : 1 };
@@ -231,18 +275,23 @@ void main() {
       try {
         vols[id].tex = texture(vols[id].meta.dims, await gunzip(BASE + vols[id].meta.file));
         if (id === order[0]) root.classList.add('brainvol-ready');
+        if (face && id === face.vol) loadFace();
         dirty = true;
       } catch (e) { console.warn('brainvol: could not load', id, e); }
     }
   }
 
   // ---------------- drawing ----------------
-  let scale = new URLSearchParams(location.search).has('hq') ? 1.0 : 0.62;                 // render resolution relative to CSS pixels
+  const scale0 = new URLSearchParams(location.search).has('hq') ? 1.0 : 0.62;               // render resolution relative to CSS pixels
+  let scale = scale0;
+  let sharp = false;        // while the section fills the cut face, render at screen resolution (rays stop at the face)
   let dirty = true, lastY = -1, slow = 0;
   const dark = matchMedia('(prefers-color-scheme: dark)');
 
   function resize() {
-    const w = Math.max(1, Math.round(innerWidth * scale)), h = Math.max(1, Math.round(innerHeight * scale));
+    let s = scale;
+    if (sharp) s = Math.min(Math.min(devicePixelRatio || 1, 2), Math.sqrt(5e6 / (innerWidth * innerHeight))) * scale / scale0;
+    const w = Math.max(1, Math.round(innerWidth * s)), h = Math.max(1, Math.round(innerHeight * s));
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; dirty = true; }
   }
 
@@ -264,6 +313,15 @@ void main() {
     canvas.style.opacity = fade.toFixed(3);
     if (fade < 0.01) return;
 
+    const half = va.half.map((h, i) => lerp(h, vb.half[i], mix));
+    // weight of the real section: full once the clip plane sits on it, gone 3 mm before
+    let faceOn = 0;
+    if (face && face.tex && a.vol === face.vol && b.vol === face.vol && S.clip > 0.001) {
+      const off = Math.abs(lerp(-half[0] * 1.05, S.clipx * half[0], S.clip) - face.clipx * half[0]);
+      faceOn = 1 - ease(Math.min(1, off / (3 * MM)));
+    }
+    if ((faceOn > 0.5) !== sharp) { sharp = faceOn > 0.5; resize(); }
+
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, va.tex);
@@ -272,7 +330,6 @@ void main() {
     gl.uniform1i(U.uPalA, va.pal); gl.uniform1i(U.uPalB, vb.pal);
     gl.uniform1f(U.uMix, mix);
 
-    const half = va.half.map((h, i) => lerp(h, vb.half[i], mix));
     const target = [S.tx * half[0], S.ty * half[1], S.tz * half[2]];
     const az = (S.az + drift) * Math.PI / 180, el = S.el * Math.PI / 180;
     // camera on a sphere around the target; azimuth 0 looks at the left side of the brain
@@ -297,6 +354,11 @@ void main() {
     const L = [-0.45, 0.75, 0.5], ll = Math.hypot(...L);
     gl.uniform3f(U.uLight, L[0] / ll, L[1] / ll, L[2] / ll);
     gl.uniform1f(U.uDark, dark.matches ? 1 : 0);
+    gl.uniform1f(U.uFaceOn, faceOn);
+    if (faceOn > 0) {     // mip level from the size of a screen pixel on the face against a texel
+      const px = S.dist * 2 * Math.tan(fov / 2) / canvas.height, texel = 2 * half[1] / face.rows;
+      gl.uniform1f(U.uFaceLod, Math.max(0, Math.log2(px / texel)));
+    }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
