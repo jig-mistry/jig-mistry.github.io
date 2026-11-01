@@ -302,7 +302,10 @@ void main() {
   }
   function loadFace() { loadSection(face.src, 2, (tex, img) => { face.tex = tex; face.rows = img.height; }); }
   function loadCuts() {
-    ['x', 'y', 'z'].forEach((k, i) => loadSection(cuts[k], 3 + i, (tex, img) => { cuts.rows[k] = img.height; cuts.ready++; }));
+    ['x', 'y', 'z'].forEach((k, i) => loadSection(cuts[k], 3 + i, (tex, img) => {
+      cuts.rows[k] = img.height;
+      if (++cuts.ready === 3) cuts.t0 = performance.now();
+    }));
   }
 
   async function load() {
@@ -323,10 +326,10 @@ void main() {
         vols[id].tex = texture(vols[id].meta.dims, await gunzip(BASE + vols[id].meta.file));
         if (id === order[0]) root.classList.add('brainvol-ready');
         if (face && id === face.vol) loadFace();
+        if (cuts && id === cuts.vol) loadCuts();
         dirty = true;
       } catch (e) { console.warn('brainvol: could not load', id, e); }
     }
-    if (cuts && vols[cuts.vol]) loadCuts();     // last: they are only needed far down the page
   }
 
   // ---------------- drawing ----------------
@@ -368,10 +371,13 @@ void main() {
       const off = Math.abs(lerp(-half[0] * 1.05, S.clipx * half[0], S.clip) - face.clipx * half[0]);
       faceOn = 1 - ease(Math.min(1, off / (3 * MM)));
     }
-    // weight of the octant cut sections: full once the cut planes meet in the middle, gone 3 mm before
+    // weight of the octant cut sections: full once the cut planes meet in the middle, gone 3 mm before;
+    // faded in over a moment once they arrive, since the first view may already be showing the cut
     let cutOn = 0;
     if (cuts && cuts.ready === 3 && a.vol === cuts.vol && b.vol === cuts.vol && S.cut > 0.001 && S.hd > 0.001) {
-      cutOn = S.hd * (1 - ease(Math.min(1, Math.max(...half) * (1 - S.cut) / (3 * MM))));
+      const arrive = Math.min(1, Math.max(0, (now - cuts.t0) / 800));
+      if (arrive < 1) dirty = true;
+      cutOn = S.hd * ease(arrive) * (1 - ease(Math.min(1, Math.max(...half) * (1 - S.cut) / (3 * MM))));
     }
     if ((faceOn > 0.5 || cutOn > 0.5) !== sharp) { sharp = !sharp; resize(); }
 
