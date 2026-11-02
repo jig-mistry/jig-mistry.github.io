@@ -196,8 +196,8 @@ a.card:hover { border-color: var(--accent); transform: translateY(-2px); text-de
 .hero.wrap { padding-left: 20px; padding-right: 20px; margin-top: 0; margin-bottom: 0; }
 #about.about { width: min(920px, calc(100% - 40px)); }
 /* the blocks after the research figures run to the same right edge as the figure grid (1200 px of content) */
-#projects, #opensource, #publications, #contact, .footer.wrap { width: min(1200px, calc(100% - 40px)); max-width: none; }
-#about.about, #projects, #opensource, #publications, #contact, .footer.wrap {
+#projects, #publications, #contact, .footer.wrap { width: min(1200px, calc(100% - 40px)); max-width: none; }
+#about.about, #projects, #publications, #contact, .footer.wrap {
   margin-left: max(20px, calc((100% - 1240px) / 2 - var(--shift) + 20px)); margin-right: auto;
 }
 .hero {
