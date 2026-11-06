@@ -1,0 +1,120 @@
+{
+ "layout": {
+  "type": "uint8",
+  "channels": [
+   "stain density",
+   "depth below the outer surface"
+  ],
+  "order": "slice (back to front), row (bottom to top), column (left to right), channel; last index fastest",
+  "compression": "gzip"
+ },
+ "sources": "DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline (14 weeks: VALIS); BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
+ "brains": [
+  {
+   "id": "dharani_14gw",
+   "data": "dharani_14gw.bin.gz",
+   "grid": [
+    81,
+    100,
+    98
+   ],
+   "voxel_mm": 0.36,
+   "extent_mm": [
+    29.16,
+    36.0,
+    35.28
+   ],
+   "weeks": 14,
+   "subject": "sub-001",
+   "brain": "FB40"
+  },
+  {
+   "id": "dharani_17gw",
+   "data": "dharani_17gw.bin.gz",
+   "grid": [
+    110,
+    138,
+    128
+   ],
+   "voxel_mm": 0.36,
+   "extent_mm": [
+    39.6,
+    49.68,
+    46.08
+   ],
+   "weeks": 17,
+   "subject": "sub-002",
+   "brain": "FB74"
+  },
+  {
+   "id": "dharani_21gw",
+   "data": "dharani_21gw.bin.gz",
+   "grid": [
+    146,
+    160,
+    166
+   ],
+   "voxel_mm": 0.36,
+   "extent_mm": [
+    52.56,
+    57.6,
+    59.76
+   ],
+   "weeks": 21,
+   "subject": "sub-003",
+   "brain": "FB34"
+  },
+  {
+   "id": "dharani_22gw",
+   "data": "dharani_22gw.bin.gz",
+   "grid": [
+    129,
+    159,
+    159
+   ],
+   "voxel_mm": 0.36,
+   "extent_mm": [
+    46.44,
+    57.24,
+    57.24
+   ],
+   "weeks": 22,
+   "subject": "sub-004",
+   "brain": "FB62"
+  },
+  {
+   "id": "dharani_24gw",
+   "data": "dharani_24gw.bin.gz",
+   "grid": [
+    170,
+    210,
+    190
+   ],
+   "voxel_mm": 0.36,
+   "extent_mm": [
+    61.2,
+    75.6,
+    68.4
+   ],
+   "weeks": 24,
+   "subject": "sub-005",
+   "brain": "FB85"
+  },
+  {
+   "id": "bigbrain",
+   "data": "bigbrain.bin.gz",
+   "grid": [
+    222,
+    181,
+    253
+   ],
+   "voxel_mm": 0.6,
+   "extent_mm": [
+    133.2,
+    108.6,
+    151.8
+   ],
+   "name": "BigBrain"
+  }
+ ]
+}

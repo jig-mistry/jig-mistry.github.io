@@ -4,83 +4,77 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jignesh Mistry</title>
-  <meta name="description" content="Jignesh Mistry — computational neuroscience, brain histology and MRI, machine learning. From BigBrain to small brains.">
+  <meta name="description" content="Jignesh Mistry: computational neuroscience, brain histology and MRI, machine learning. From BigBrain to small brains.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23c2410c'/><text x='50' y='66' font-size='46' text-anchor='middle' fill='white' font-family='Georgia'>JM</text></svg>">
-  <link rel="preload" href="assets/volumes/volumes.json" as="fetch" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=DM+Mono:wght@400;500&family=Spectral:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/dive/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2308070f'/><rect x='18' y='70' width='64' height='6' fill='%23d6ff3f'/><rect x='18' y='58' width='6' height='18' fill='%23d6ff3f'/><rect x='76' y='58' width='6' height='18' fill='%23d6ff3f'/></svg>">
+  <script>
+    /* Decide before first paint: the dive needs WebGL2 and a visitor who has not asked for less motion.
+       Otherwise the same markup stays an ordinary page. ?flat forces that page. */
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var calm = matchMedia('(prefers-reduced-motion: reduce)').matches || q.has('flat');
+      var gl = null;
+      try { gl = document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+      if (gl && !calm) document.documentElement.classList.add('dive');
+      if (gl && gl.getExtension('WEBGL_lose_context')) gl.getExtension('WEBGL_lose_context').loseContext();
+    })();
+  </script>
 </head>
 <body>
-  <header class="nav">
-    <div class="wrap nav-inner">
-      <a class="brand" href="#top">Jignesh Mistry</a>
-      <nav>
-        <a href="#about">About</a>
-        <a href="#research">Research</a>
-        <a href="#projects">Projects</a>
-        <a href="#publications">Publications</a>
-        <a href="#contact">Contact</a>
-      </nav>
-    </div>
-  </header>
+  <canvas id="stage" aria-hidden="true"></canvas>
+  <canvas id="fibres" aria-hidden="true"></canvas>
 
-  <!-- whole brains, volume-rendered behind the page and driven by scroll (assets/js/brainvol.js) -->
-  <canvas id="brainvol" class="brainvol" data-volumes="assets/volumes/" aria-hidden="true"
-          data-face='{"vol":"dharani_24gw","src":"assets/img/ge/face_24gw.webp","clipx":-0.42}'
-          data-cutfaces='{"vol":"bigbrain","x":"assets/img/cyto/bb_cut_x.webp","y":"assets/img/cyto/bb_cut_y.webp","z":"assets/img/cyto/bb_cut_z.webp"}'></canvas>
+  <div class="hud" id="hud" aria-hidden="true">
+    <div class="hud-read"><b id="hud-value">10.0 cm</b><span id="hud-label">BigBrain</span></div>
+    <div class="hud-bar" id="hud-bar"></div>
+  </div>
 
-  <main id="top">
-    <section class="hero wrap" data-scene='{"vol":"bigbrain","az":-38,"el":16,"dist":3.7,"sx":0.47,"sy":-0.02,"cut":1,"clip":0,"tx":0,"ty":0,"tz":0,"fade":1,"hd":1}'>
-      <div class="hero-text">
+  <nav class="rail" id="rail" aria-label="Scale from ten centimetres to half a micrometre"></nav>
+
+  <div id="track"></div>
+
+  <main>
+    <section class="stop hero" id="bigbrain" data-r="100" data-label="BigBrain" data-plateau="0.9" data-transit="0.3">
+      <div class="copy">
         <p class="eyebrow">Computational neuroscience · Brain imaging · AI</p>
-        <h1>Jignesh Mistry</h1>
+        <h1><span>Jignesh</span> <span>Mistry</span></h1>
         <p class="role">Research Associate · Sudha Gopalakrishnan Brain Centre, IIT&nbsp;Madras<br>
           Visiting researcher · ACE Lab, McGill&nbsp;University</p>
-        <p class="lede">
-          I build computational tools that make the human brain easier to see and
-          analyze — from whole-brain MRI down to single cells under the microscope.
-        </p>
-        <div class="cta">
-          <!-- hidden until assets/cv.pdf exists: <a class="btn primary" href="assets/cv.pdf">Download CV</a> -->
-          <a class="btn" href="https://github.com/jig-mistry">GitHub</a>
-          <a class="btn" href="#research">See my research</a>
-        </div>
-        <ul class="hero-facts">
+        <p class="lede">I build computational tools that make the human brain easier to see and
+          analyze, from whole-brain MRI down to single cells under the microscope.</p>
+        <p class="links"><a href="https://github.com/jig-mistry">GitHub</a> <a href="#fetal">See my research</a></p>
+        <ul class="facts">
           <li><strong>MLMI 2026</strong> · poster, MICCAI 2026 satellite events</li>
           <li><strong>14–24 weeks</strong> · fetal brains reconstructed from serial sections</li>
         </ul>
       </div>
-      <img class="brainvol-poster" src="assets/img/hero/bigbrain_poster.webp" alt="" aria-hidden="true" width="839" height="644">
-      <p class="stage-caption">BigBrain, a whole human brain imaged at 20&nbsp;µm, rendered live in your browser.</p>
+      <img class="poster" src="assets/img/hero/bigbrain_poster.webp" alt="BigBrain cut open, showing the folded cortex" width="839" height="644">
+      <p class="stage-note">BigBrain, a whole human brain imaged at 20&nbsp;µm, rendered live in your browser.</p>
+      <p class="cue" aria-hidden="true">Scroll to dive</p>
     </section>
 
-    <section id="about" class="wrap section about" data-scene='{"az":20,"el":22,"dist":3.6,"sx":0.5,"cut":0,"fade":0.55}'>
-      <div class="portrait">
-        <img src="assets/photo.jpg" alt="Illustrated portrait of Jignesh Mistry at sunset by the sea" width="600" height="600">
-      </div>
-      <div>
-        <h2>About</h2>
+    <section class="stop" id="about" data-r="80" data-label="About" data-plateau="1" data-transit="2.6">
+      <div class="copy">
+        <p class="at">About</p>
         <p class="tagline">“<em>Mistry</em>, trying to solve the <em>Mystery</em> of the human brain.”</p>
-        <p>
-          I'm a computational neuroscientist: a Research Associate at the Sudha Gopalakrishnan Brain Centre,
+        <img class="portrait" data-src="assets/photo.jpg" alt="Illustrated portrait of Jignesh Mistry at sunset by the sea" width="600" height="600">
+        <p>I'm a computational neuroscientist: a Research Associate at the Sudha Gopalakrishnan Brain Centre,
           IIT&nbsp;Madras, and currently a visiting researcher in Alan C. Evans's ACE Lab at McGill University,
           one of the homes of BigBrain. I build computational methods to map the human brain from cells to
           the whole organ: stacking thousands of serial sections into 3D brains, registering them to MRI,
-          and measuring how cells and layers change as the fetal brain develops.
-        </p>
-        <p>
-          Before this I worked with Keith St. Lawrence's group at Western University, measuring blood flow
+          and measuring how cells and layers change as the fetal brain develops.</p>
+        <p>Before this I worked with Keith St. Lawrence's group at Western University, measuring blood flow
           in the adult brain with near-infrared light, from outside the skull. Now I look at the brain from
           the inside, one section at a time. Next, I want to trace neuronal pathways at micron resolution
-          through myelin, and understand how the human brain develops and wires itself up before birth.
-        </p>
-        <div class="tags" aria-label="Interests">
-          <span>Histology ↔ MRI registration</span><span>3D reconstruction</span><span>Fetal neurodevelopment</span>
-          <span>Deep learning for imaging</span><span>Myelin pathways</span><span>Diffuse optics</span>
-        </div>
-        <h3 class="about-sub">Recent</h3>
+          through myelin, and understand how the human brain develops and wires itself up before birth.</p>
+        <ul class="tags" aria-label="Interests">
+          <li>Histology ↔ MRI registration</li><li>3D reconstruction</li><li>Fetal neurodevelopment</li>
+          <li>Deep learning for imaging</li><li>Myelin pathways</li><li>Diffuse optics</li>
+        </ul>
+        <h3>Recent</h3>
         <ul class="recent">
           <li><strong>Now</strong> · Visiting researcher, ACE Lab, McGill University, Montreal</li>
           <li><strong>Poster</strong> · BigBrain Workshop 2026</li>
@@ -90,274 +84,202 @@
       </div>
     </section>
 
-    <section id="research" class="research">
-      <div class="wrap wide">
-        <div class="section research-intro" data-scene='{"az":70,"el":14,"dist":3.9,"sx":0.45,"cut":0,"fade":0.9}'>
-          <p class="eyebrow">Research</p>
-          <h2 class="pun">From BigBrain to small brains</h2>
-          <p>
-            I study the human brain at every size: from BigBrain, a whole adult brain cut into
-            7,404 sections, down to the smallest brains of all, fetal brains from 14 weeks of
-            gestation.
-          </p>
-        </div>
+    <section class="stop" id="fetal" data-r="76" data-label="Fetal development" data-plateau="3.2" data-transit="0.9">
+      <div class="copy">
+        <p class="at">From BigBrain to small brains</p>
+        <p class="small">I study the human brain at every size: from BigBrain, a whole adult brain cut into
+          7,404 sections, down to the smallest brains of all, fetal brains from 14 weeks of gestation.</p>
+        <h2>Human Fetal Neuro&shy;development</h2>
+        <p>How the human brain builds itself before birth, studied in high-resolution histology of fetal brains.</p>
+        <p class="small">These are the five public DHARANI fetal brains, each reconstructed in 3D from
+          serial Nissl sections (the 14-week brain with VALIS, the others with the mcmadras stacking pipeline)
+          and drawn at true relative size.</p>
+        <ol class="gw" aria-label="Gestational age">
+          <li data-gw="14">14</li><li data-gw="17">17</li><li data-gw="21">21</li><li data-gw="22">22</li><li data-gw="24">24</li>
+        </ol>
+        <p class="gw-now"><b id="gw-value">14</b> gestational weeks</p>
       </div>
+      <img class="flat-only" data-src="assets/img/ge/face_24gw.webp" alt="" width="1853" height="2048">
+    </section>
 
-      <!-- 1. Fetal development: the five DHARANI brains grow from 14 to 24 weeks -->
-      <article class="chapter wrap" id="fetal">
-        <div class="chapter-text section">
-          <p class="chapter-num">01</p>
-          <h3>Human Fetal Neurodevelopment</h3>
-          <p>How the human brain builds itself before birth, studied in high-resolution histology of fetal brains.</p>
-          <p class="muted small">
-            The brains on the right are the five public DHARANI fetal brains, each reconstructed in 3D from
-            serial Nissl sections (the 14-week brain with VALIS, the others with the mcmadras stacking pipeline)
-            and drawn at true relative size.
-          </p>
-          <ol class="gw-ruler" aria-label="Gestational age">
-            <li data-gw="14">14</li><li data-gw="17">17</li><li data-gw="21">21</li><li data-gw="22">22</li><li data-gw="24">24</li>
-          </ol>
-          <p class="gw-now"><span class="gw-value">14</span> gestational weeks</p>
-        </div>
-        <div class="steps">
-          <!-- same camera as BigBrain first, so the 14-week brain appears at its true size next to it -->
-          <div class="step" data-gw="14" data-scene='{"vol":"dharani_14gw","az":-25,"el":12,"dist":3.9,"sx":0.32,"sy":-0.05,"cut":0,"fade":1}'></div>
-          <div class="step" data-gw="14" data-scene='{"dist":1.85}'></div>
-          <div class="step" data-gw="17" data-scene='{"vol":"dharani_17gw","az":-15}'></div>
-          <div class="step" data-gw="21" data-scene='{"vol":"dharani_21gw","az":-5}'></div>
-          <div class="step" data-gw="22" data-scene='{"vol":"dharani_22gw","az":5}'></div>
-          <div class="step" data-gw="24" data-scene='{"vol":"dharani_24gw","az":15,"el":14}'></div>
-        </div>
-      </article>
-
-      <!-- 2. Ganglionic eminence: cut into the 24-week brain, then down to cells -->
-      <article class="chapter wrap" id="ge">
-        <div class="chapter-text section">
-          <p class="chapter-num">02</p>
-          <h3>Ganglionic Eminence</h3>
-          <p>Mapping the ganglionic eminence, the transient fetal structure that gives rise to cortical interneurons, in the developing human brain.</p>
-          <p class="muted small">The 24-week brain is cut open along a sagittal plane through the ganglionic eminence, the dense band of cells on the wall of the lateral ventricle.</p>
-        </div>
-        <div class="steps">
-          <div class="step" data-scene='{"vol":"dharani_24gw","az":0,"el":8,"dist":1.7,"sx":0.32,"sy":-0.04,"clip":0,"clipx":-0.42,"tx":0,"ty":0,"tz":0}'></div>
-          <div class="step" data-scene='{"az":0,"el":6,"dist":1.15,"sx":0.3,"clip":1,"clipx":-0.42,"tx":-0.42,"ty":0.3,"tz":-0.15}'></div>
-          <div class="step" data-scene='{"dist":0.85,"el":4,"sx":0.28,"clip":1,"tx":-0.42,"ty":0.34,"tz":-0.2,"fade":1}'></div>
-        </div>
-      </article>
-
-      <div class="wrap zoom-block" data-scene='{"fade":0}'>
-        <figure class="zoomer" data-zoom="assets/img/ge/nissl_zoom.json" data-mm="72.2">
-          <div class="zoomer-stage"><canvas></canvas><span class="scalebar"><i></i><b></b></span></div>
-          <figcaption>
-            <strong>The same 24-week brain, one Nissl section.</strong>
-            Scroll to zoom from the whole section into the ganglionic eminence and down to its cells, 0.5&nbsp;µm per pixel.
-          </figcaption>
-        </figure>
+    <section class="stop bench-stop" id="whereismyslice" data-r="72" data-label="whereismyslice" data-plateau="2.6" data-transit="0.8">
+      <div class="copy top">
+        <p class="at">Project</p>
+        <h2><a href="https://github.com/jig-mistry/whereismyslice">whereismyslice</a></h2>
+        <p class="wide-text">Localizes human brain histology sections in 3D MRI space with cross-modal embeddings,
+          trained on synthetic BigBrain + MRI pairs with no manual labels. Retrieves matching
+          MRI slices and flags misordered, flipped or damaged sections.</p>
+        <ul class="tags"><li>Python</li><li>Deep learning</li><li>Histology</li><li>Deep Learning For Neuroimaging: self-supervised and cross-modal models trained on synthetic data, such as BigBrain reslices</li></ul>
       </div>
-
-      <div class="wrap zoom-block">
-        <figure class="zoomer dark" data-zoom="assets/img/ge/pf_zoom.json" data-mm="41.1">
-          <div class="zoomer-stage"><canvas></canvas><span class="scalebar"><i></i><b></b></span></div>
-          <figcaption>
-            <strong>What lives in the ganglionic eminence.</strong>
-            Two immunostained neighbouring sections of another fetal brain, overlaid in green and red. Zoom in to see
-            elongated migrating cells and their processes streaming out of the eminence.
-          </figcaption>
-        </figure>
-      </div>
-
-      <div class="wrap wide">
-        <figure class="figure ge3d section" data-scene='{"fade":0}'>
-          <img src="assets/img/ge/ge_rotate.webp" alt="Rotating 3D reconstruction of the ganglionic eminence inside a translucent fetal brain" loading="lazy" width="720" height="720">
-          <figcaption>
-            <strong>The ganglionic eminence in 3D.</strong>
-            A 17-week fetal brain (DHARANI) reconstructed from serial Nissl sections, with the eminence segmented on every section: both eminences (orange) inside the translucent brain.
-          </figcaption>
-        </figure>
-      </div>
-
-      <!-- 3. Myelin-based connectomics -->
-      <article class="chapter wrap flat" id="myelin" data-scene='{"fade":0}'>
-        <div class="chapter-text section">
-          <p class="chapter-num">03</p>
-          <h3>Myelin-Based Connectomics</h3>
-          <p>Tracing the brain's actual fibre pathways from myelin-stained sections, as ground truth beyond MRI tractography.</p>
-          <p class="muted small">
-            Streamlines traced through the white matter of one myelin-stained section of a human brain.
-            Colour is the fibre direction in the section plane.
-          </p>
-          <div class="wheel-legend"><span class="wheel" aria-hidden="true"></span><span>Direction in the section plane: red horizontal, cyan vertical.</span></div>
-        </div>
-        <div class="figure-pair dark-figs">
-          <figure class="figure tall"><img src="assets/img/myelin/streamlines_section.webp" alt="Fibre streamlines across a whole coronal section, coloured by direction" loading="lazy" width="994" height="1700"></figure>
-          <figure class="figure"><img src="assets/img/myelin/streamlines_zoom.webp" alt="Close-up of streamlines around the internal capsule" loading="lazy" width="1161" height="1500">
-            <figcaption>Close-up: fibres fanning around the internal capsule.</figcaption></figure>
-        </div>
-      </article>
-
-      <!-- 4. Histology <-> MRI registration -->
-      <article class="chapter wrap flat" id="registration" data-scene='{"fade":0}'>
-        <div class="chapter-text section">
-          <p class="chapter-num">04</p>
-          <h3>Histology ↔ MRI Registration</h3>
-          <p>Automated, annotation-free alignment of human brain histology sections to MRI volumes.</p>
-          <p class="small">
-            <strong>Learn the Metric, Not the Deformation: A Small Contrastive Encoder for Cross-Modal Histology–MRI Registration.</strong>
-            Accepted as a poster at MLMI 2026, MICCAI 2026 Satellite Events (Springer LNCS).
-          </p>
-          <p class="links-row"><a class="btn" href="assets/pdf/MLMI2026_poster_Mistry.pdf">Poster (PDF)</a></p>
-        </div>
-        <div class="reg-figs">
-          <figure class="figure dark-figs"><img src="assets/img/reg/qualitative.webp" alt="Registration results: MRI, raw histology, overlay after registration and checkerboard for BigBrain, Allen and AHEAD" loading="lazy" width="2200" height="1688">
-            <figcaption>MRI, histology, overlay after registration and checkerboard. Rows: BigBrain, Allen, AHEAD (zero-shot).</figcaption></figure>
-          <a class="figure poster-thumb" href="assets/pdf/MLMI2026_poster_Mistry.pdf"><img src="assets/img/reg/poster.webp" alt="MLMI 2026 poster" loading="lazy" width="990" height="1400"></a>
-        </div>
-      </article>
-
-      <div class="wrap scrub-block" data-scene='{"fade":0}'>
-        <figure class="scrubber" data-frames="assets/img/reg/stack/stack_zoom.json">
-          <div class="scrubber-stage"><canvas></canvas></div>
-          <figcaption>
-            <strong>From the whole brain to single voxels.</strong>
-            The same 17-week brain, stacked from its serial Nissl sections at 64&nbsp;µm and rendered on the GPU. The front
-            cut face runs across the sections, so scrolling in to the ganglionic eminence and striatum shows whether
-            neighbouring sections line up inside the tissue, not just at the outline.
-          </figcaption>
-        </figure>
-        <span class="scene-mark" data-scene='{"fade":0,"vol":"bigbrain"}'></span>
-      </div>
-
-      <!-- 5. Cytoarchitecture: BigBrain comes back, cut open -->
-      <article class="chapter wrap" id="cyto">
-        <div class="chapter-text section">
-          <p class="chapter-num">05</p>
-          <h3>Cytoarchitecture</h3>
-          <p>Quantifying gradual transitions between cortical areas using learned image embeddings.</p>
-          <p class="muted small">Behind: BigBrain again, cut open. Below: the layered wall of the fetal cortex, from Nissl and from immunostaining.</p>
-        </div>
-        <div class="steps">
-          <div class="step" data-scene='{"vol":"bigbrain","az":-128,"el":24,"dist":3.2,"sx":0.32,"sy":0,"cut":1,"clip":0,"tx":0,"ty":0,"tz":0,"fade":1,"hd":1}'></div>
-          <div class="step" data-scene='{"az":-150,"el":18,"dist":2.6,"sx":0.3,"cut":1,"fade":0.9}'></div>
-        </div>
-      </article>
-
-      <div class="wrap cyto-figs" data-scene='{"fade":0.25,"dist":3.4,"az":-170}'>
-        <figure class="figure wide"><img src="assets/img/cyto/wall_strip.webp" alt="Nissl-stained fetal cortical wall from the pial surface to the ventricle" loading="lazy" width="3200" height="682">
-          <figcaption>The fetal cortical wall at 22 weeks, pia (left) to ventricle (right): cortical plate, subplate, intermediate zone and germinal zones. Nissl, DHARANI.</figcaption></figure>
-        <div class="figure-pair">
-          <figure class="figure"><img src="assets/img/cyto/cp_cells.webp" alt="Cells of the fetal cortical plate at 0.5 micrometre per pixel" loading="lazy" width="1280" height="1600">
-            <figcaption>Cortical plate cells, 0.5&nbsp;µm per pixel.</figcaption></figure>
-          <figure class="figure dark-figs"><img src="assets/img/cyto/ihc_layers.webp" alt="Three immunostained markers in red, green and blue across the fetal cortical layers" loading="lazy" width="1280" height="1600">
-            <figcaption>Three immunostained markers, one per colour, mark different layers of the same wall.</figcaption></figure>
-        </div>
-      </div>
-
-      <div class="wrap wide">
-        <div class="section also">
-          <h3>Also</h3>
-          <div class="grid two">
-            <article class="card">
-              <h3>Deep Learning For Neuroimaging</h3>
-              <p>Self-supervised and cross-modal models trained on synthetic data, such as BigBrain reslices.</p>
-            </article>
+      <div class="bench-hit" id="bench-hit" aria-hidden="true"></div>
+      <p class="vol-tag hist-tag" id="tag-hist">Nissl histology</p>
+      <p class="vol-tag mri-tag" id="tag-mri">T1 MRI</p>
+      <div class="bench-panel" id="bench-panel">
+        <div class="find">
+          <canvas id="target" width="112" height="112" role="img" aria-label="The histology section to find"></canvas>
+          <div>
+            <p class="pct"><b id="pct">0</b><span>% close</span></p>
+            <p class="gap" id="gap" aria-live="polite">Drag the blade into the brain until your section matches this one.</p>
+            <button class="textbtn" id="showme" type="button">Show me the plane</button>
           </div>
         </div>
+        <div class="sliders">
+          <label><span>Position</span><input id="rPos" type="range" min="-38" max="38" step="0.5" value="-6"></label>
+          <label><span>Tilt</span><input id="rTilt" type="range" min="-90" max="90" step="1" value="0"></label>
+          <label><span>Turn</span><input id="rTurn" type="range" min="-180" max="0" step="1" value="-90"></label>
+        </div>
+        <p class="fine">An illustration, not the model: your browser already knows the target plane. Both volumes are the same 24-week brain: the MRI in its native shape, placed rigidly, so one blade cuts the same anatomy in each.</p>
       </div>
     </section>
 
-    <section id="projects" class="wrap section" data-scene='{"vol":"bigbrain","az":-200,"el":16,"dist":3.6,"sx":0.5,"cut":0,"clip":0,"fade":0.3,"hd":0}'>
-      <h2>Projects</h2>
-      <div class="grid three">
-        <a class="card project" href="https://github.com/jig-mistry/whereismyslice">
-          <h3>whereismyslice</h3>
-          <p>Localizes human brain histology sections in 3D MRI space with cross-modal embeddings,
-            trained on synthetic BigBrain + MRI pairs with no manual labels. Retrieves matching
-            MRI slices and flags misordered, flipped or damaged sections.</p>
-          <span class="tags"><span>Python</span><span>Deep learning</span><span>Histology</span></span>
-        </a>
-        <a class="card project" href="https://github.com/jig-mistry/BorderLands">
-          <h3>BorderLands</h3>
-          <p>Measuring gradual cytoarchitectonic transitions in embedding space.</p>
-          <span class="tags"><span>Cortex</span><span>Embeddings</span></span>
-        </a>
-        <a class="card project" href="https://github.com/jig-mistry/Image_process_playground">
-          <h3>Image processing playground</h3>
-          <p>A testbed for classic image-processing algorithms and their effect on
-            pre- and post-processing pipelines.</p>
-          <span class="tags"><span>Image processing</span></span>
-        </a>
+    <section class="stop reg-stop" id="registration" data-r="66" data-label="Registration" data-plateau="11" data-transit="1.2">
+      <div class="copy top">
+        <p class="at">Research</p>
+        <h2>Histology ↔ MRI Registration</h2>
+        <p class="wide-text">Automated, annotation-free alignment of human brain histology sections to MRI volumes.
+          <strong>Learn the Metric, Not the Deformation: A Small Contrastive Encoder for Cross-Modal Histology–MRI Registration.</strong>
+          Accepted as a poster at MLMI 2026, MICCAI 2026 Satellite Events (Springer LNCS).</p>
+        <p class="links"><a href="assets/pdf/MLMI2026_poster_Mistry.pdf">Poster (PDF)</a></p>
+      </div>
+      <div class="reg-step" id="reg-step" aria-live="off"><b id="reg-title">Block face</b><span id="reg-text"></span></div>
+      <img class="flat-only" data-src="assets/img/reg/qualitative_violet.webp" alt="Registration results: MRI, raw histology, overlay after registration and checkerboard for BigBrain, Allen and AHEAD" width="2200" height="1688">
+    </section>
+
+    <section class="stop" id="section" data-r="38" data-label="One section" data-plateau="1" data-transit="0.2">
+      <div class="copy top">
+        <p class="at">Same method, other brains</p>
+        <p class="small">MRI, histology, overlay after registration and checkerboard. Rows: BigBrain, Allen, AHEAD (zero-shot).</p>
+      </div>
+      <figure class="plate reg"><img data-src="assets/img/reg/qualitative_violet.webp" alt="Registration results: MRI, raw histology, overlay after registration and checkerboard for BigBrain, Allen and AHEAD" width="2200" height="1688"></figure>
+      <img class="flat-only darkfield" data-src="assets/img/ge/nissl_section.webp" alt="One Nissl section of the 24-week brain" width="2400" height="2149">
+      <p class="stage-note">The same 24-week brain, one Nissl section.</p>
+    </section>
+
+    <section class="stop" id="ge" data-r="6" data-label="Ganglionic eminence" data-plateau="1.1">
+      <div class="copy">
+        <p class="at">Research</p>
+        <h2>Ganglionic Eminence</h2>
+        <p>Mapping the ganglionic eminence, the transient fetal structure that gives rise to cortical interneurons, in the developing human brain.</p>
+        <p class="small">The 24-week brain is cut open along a sagittal plane through the ganglionic eminence, the dense band of cells on the wall of the lateral ventricle.</p>
+      </div>
+      <figure class="plate lens rotate"><div class="lens-glass"><img data-src="assets/img/ge/ge_rotate.webp" alt="Rotating 3D reconstruction of the ganglionic eminence inside a translucent fetal brain" width="720" height="720"></div>
+        <figcaption>A 17-week fetal brain (DHARANI) reconstructed from serial Nissl sections, with the eminence segmented on every section: both eminences (orange) inside the translucent brain.</figcaption></figure>
+      <img class="flat-only darkfield" data-src="assets/img/ge/nissl_ge.webp" alt="The ganglionic eminence on the Nissl section" width="1700" height="1700">
+    </section>
+
+    <section class="stop" id="migrating" data-r="2" data-label="Migrating cells" data-plateau="1.1">
+      <div class="copy">
+        <p class="at">Research</p>
+        <h2>What lives in the ganglionic eminence</h2>
+        <p>Two immunostained neighbouring sections of another fetal brain, overlaid in green and red: elongated
+          migrating cells and their processes streaming out of the eminence.</p>
+      </div>
+      <figure class="plate lens pf" data-mm="3.996"><div class="lens-glass"><img data-src="assets/img/ge/pf_ge_mid.webp" alt="Green and red immunostained cells streaming out of the ganglionic eminence" width="1800" height="1800"></div></figure>
+    </section>
+
+    <section class="stop" id="cytoarchitecture" data-r="0.4" data-label="Cytoarchitecture" data-plateau="1.2">
+      <div class="copy">
+        <p class="at">Research</p>
+        <h2>Cytoarchitecture</h2>
+        <p>Quantifying gradual transitions between cortical areas using learned image embeddings.</p>
+        <h3><a href="https://github.com/jig-mistry/BorderLands">BorderLands</a></h3>
+        <p class="small">Measuring gradual cytoarchitectonic transitions in embedding space.</p>
+        <ul class="tags"><li>Cortex</li><li>Embeddings</li></ul>
+      </div>
+      <figure class="plate strip"><img class="darkfield" data-src="assets/img/cyto/wall_strip.webp" alt="Nissl-stained fetal cortical wall from the pial surface to the ventricle" width="3200" height="682">
+        <figcaption>The fetal cortical wall at 22 weeks, pia (left) to ventricle (right): cortical plate, subplate, intermediate zone and germinal zones. Nissl, DHARANI.</figcaption></figure>
+      <figure class="plate ihc"><img data-src="assets/img/cyto/ihc_layers.webp" alt="Three immunostained markers in red, green and blue across the fetal cortical layers" width="1280" height="1600">
+        <figcaption>Three immunostained markers, one per colour, mark different layers of the same wall.</figcaption></figure>
+    </section>
+
+    <section class="stop" id="myelin" data-r="0.1" data-label="Myelin pathways" data-plateau="1.3" data-transit="0.6">
+      <div class="copy">
+        <p class="at">Research</p>
+        <h2>Myelin-Based Connectomics</h2>
+        <p>Tracing the brain's actual fibre pathways from myelin-stained sections, as ground truth beyond MRI tractography.</p>
+        <p class="small">Streamlines traced through the white matter of one myelin-stained section of a human brain.
+          Colour is the fibre direction in the section plane.</p>
+        <p class="legend"><span class="wheel" aria-hidden="true"></span><span>Direction in the section plane: red horizontal, cyan vertical.</span></p>
+      </div>
+      <figure class="plate myelin-a"><img data-src="assets/img/myelin/streamlines_section.webp" alt="Fibre streamlines across a whole coronal section, coloured by direction" width="994" height="1700"></figure>
+      <figure class="plate myelin-b"><img data-src="assets/img/myelin/streamlines_zoom.webp" alt="Close-up of streamlines around the internal capsule" width="1161" height="1500">
+        <figcaption>Close-up: fibres fanning around the internal capsule.</figcaption></figure>
+    </section>
+
+    <section class="stop" id="cells" data-r="0.025" data-label="Single cells" data-plateau="1">
+      <div class="copy">
+        <p class="at">Same section, same brain</p>
+        <h2 style="text-transform:none">0.5&nbsp;µm per pixel</h2>
+        <p>The same 24-week brain, one Nissl section: from the whole section into the ganglionic eminence and down to its cells.</p>
+      </div>
+      <img class="flat-only darkfield" data-src="assets/img/ge/nissl_cells.webp" alt="Cells of the ganglionic eminence at 0.5 micrometres per pixel" width="1600" height="1600">
+    </section>
+
+    <section class="stop" id="playground" data-r="0.005" data-label="Image processing" data-plateau="0.9">
+      <div class="copy">
+        <p class="at">Project</p>
+        <h2><a href="https://github.com/jig-mistry/Image_process_playground">Image processing playground</a></h2>
+        <p>A testbed for classic image-processing algorithms and their effect on pre- and post-processing pipelines.</p>
+        <ul class="tags"><li>Image processing</li></ul>
       </div>
     </section>
 
-    <section id="publications" class="wrap section">
-      <h2>Selected publications</h2>
-      <ul class="pubs">
-        <li>
-          <span class="authors"><strong>Mistry J.</strong>, Ram K., Mulay S., Neelakantan S., Sivaprakasam M.</span>
-          <span class="title">Learn the Metric, Not the Deformation: A Small Contrastive Encoder for Cross-Modal Histology–MRI Registration.</span>
-          <span class="venue">Machine Learning in Medical Imaging (MLMI 2026), MICCAI Workshop. Accepted; to appear in Springer LNCS.</span>
-          <span class="links"><a href="assets/pdf/MLMI2026_poster_Mistry.pdf">Poster</a></span>
-        </li>
-        <li>
-          <span class="authors">Shoemaker L.N., Milej D., <strong>Mistry J.</strong>, St. Lawrence K.</span>
-          <span class="title">Using depth-enhanced diffuse correlation spectroscopy and near-infrared spectroscopy to isolate cerebral hemodynamics during transient hypotension.</span>
-          <span class="venue">Neurophotonics 10(2), 025013, 2023.</span>
-          <span class="links"><a href="https://doi.org/10.1117/1.NPh.10.2.025013">DOI</a></span>
-        </li>
-        <li>
-          <span class="authors">Shoemaker L.N., Milej D., Sajid A., <strong>Mistry J.</strong>, St. Lawrence K., Shoemaker J.K.</span>
-          <span class="title">Characterization of cerebral macro- and microvascular hemodynamics during transient hypotension.</span>
-          <span class="venue">Journal of Applied Physiology 135(4), 717–725, 2023.</span>
-          <span class="links"><a href="https://doi.org/10.1152/japplphysiol.00743.2022">DOI</a></span>
-        </li>
-        <li>
-          <span class="authors">Milej D., Shoemaker L.N., <strong>Mistry J.</strong>, St. Lawrence K.</span>
-          <span class="title">Importance of depth-enhanced optical methods for measuring cerebral hemodynamics during transient hypotension.</span>
-          <span class="venue">European Conferences on Biomedical Optics (Proc. SPIE 12628), 126280P, 2023.</span>
-          <span class="links"><a href="https://doi.org/10.1117/12.2666077">DOI</a></span>
-        </li>
-        <li>
-          <span class="authors"><strong>Mistry J.</strong>, Shoemaker L.N., Milej D., St. Lawrence K.</span>
-          <span class="title">Assessing extracerebral contamination in cerebral blood flow pulsatility measured by diffuse correlation spectroscopy.</span>
-          <span class="venue">Optical Tomography and Spectroscopy of Tissue XV (Proc. SPIE 12376), 112–117, 2023.</span>
-          <span class="links"><a href="https://doi.org/10.1117/12.2650380">DOI</a></span>
-        </li>
-      </ul>
-      <p class="muted">Full list on <a href="https://scholar.google.com/citations?user=txoNvjoAAAAJ&amp;hl=en">Google Scholar</a>.</p>
+    <section class="stop" id="publications" data-r="0.002" data-label="Publications" data-plateau="1.1">
+      <div class="copy wide">
+        <h2>Selected publications</h2>
+        <ul class="pubs">
+          <li>
+            <span class="authors"><strong>Mistry J.</strong>, Ram K., Mulay S., Neelakantan S., Sivaprakasam M.</span>
+            <span class="title">Learn the Metric, Not the Deformation: A Small Contrastive Encoder for Cross-Modal Histology–MRI Registration.</span>
+            <span class="venue">Machine Learning in Medical Imaging (MLMI 2026), MICCAI Workshop. Accepted; to appear in Springer LNCS. <a href="assets/pdf/MLMI2026_poster_Mistry.pdf">Poster</a></span>
+          </li>
+          <li>
+            <span class="authors">Shoemaker L.N., Milej D., <strong>Mistry J.</strong>, St. Lawrence K.</span>
+            <span class="title">Using depth-enhanced diffuse correlation spectroscopy and near-infrared spectroscopy to isolate cerebral hemodynamics during transient hypotension.</span>
+            <span class="venue">Neurophotonics 10(2), 025013, 2023. <a href="https://doi.org/10.1117/1.NPh.10.2.025013">DOI</a></span>
+          </li>
+          <li>
+            <span class="authors">Shoemaker L.N., Milej D., Sajid A., <strong>Mistry J.</strong>, St. Lawrence K., Shoemaker J.K.</span>
+            <span class="title">Characterization of cerebral macro- and microvascular hemodynamics during transient hypotension.</span>
+            <span class="venue">Journal of Applied Physiology 135(4), 717–725, 2023. <a href="https://doi.org/10.1152/japplphysiol.00743.2022">DOI</a></span>
+          </li>
+          <li>
+            <span class="authors">Milej D., Shoemaker L.N., <strong>Mistry J.</strong>, St. Lawrence K.</span>
+            <span class="title">Importance of depth-enhanced optical methods for measuring cerebral hemodynamics during transient hypotension.</span>
+            <span class="venue">European Conferences on Biomedical Optics (Proc. SPIE 12628), 126280P, 2023. <a href="https://doi.org/10.1117/12.2666077">DOI</a></span>
+          </li>
+          <li>
+            <span class="authors"><strong>Mistry J.</strong>, Shoemaker L.N., Milej D., St. Lawrence K.</span>
+            <span class="title">Assessing extracerebral contamination in cerebral blood flow pulsatility measured by diffuse correlation spectroscopy.</span>
+            <span class="venue">Optical Tomography and Spectroscopy of Tissue XV (Proc. SPIE 12376), 112–117, 2023. <a href="https://doi.org/10.1117/12.2650380">DOI</a></span>
+          </li>
+        </ul>
+        <p class="small">Full list on <a href="https://scholar.google.com/citations?user=txoNvjoAAAAJ&amp;hl=en">Google Scholar</a>.</p>
+      </div>
     </section>
 
-    <section id="contact" class="wrap section" data-scene='{"az":-250,"el":18,"dist":3.5,"sx":0.5,"cut":1,"fade":0.45}'>
-      <h2>Contact</h2>
-      <ul class="contact">
-        <li><a href="mailto:jigneshkumar@htic.iitm.ac.in">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>
-          <span>jigneshkumar@htic.iitm.ac.in</span></a></li>
-        <li><a href="https://github.com/jig-mistry">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
-          <span>github.com/jig-mistry</span></a></li>
-        <li><a href="https://scholar.google.com/citations?user=txoNvjoAAAAJ&amp;hl=en">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5 12 4l10 5.5-10 5.5z"/><path d="M6 12v4.5c0 1.5 2.7 3 6 3s6-1.5 6-3V12"/><path d="M22 9.5V15"/></svg>
-          <span>Google Scholar</span></a></li>
-        <li><a href="https://www.linkedin.com/in/jigneshmistry76/">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10.5V17"/><circle cx="8" cy="7.4" r=".6" fill="currentColor"/><path d="M12 17v-6.5m0 2.8c0-1.6 1.1-2.8 2.6-2.8s2.4 1.1 2.4 2.8V17"/></svg>
-          <span>LinkedIn</span></a></li>
-      </ul>
+    <section class="stop" id="contact" data-r="0.0005" data-label="Contact" data-plateau="1">
+      <div class="copy wide">
+        <p class="at">One pixel of the scan, 0.5&nbsp;µm across</p>
+        <h2>Contact</h2>
+        <ul class="contact">
+          <li><a href="mailto:jigneshkumar@htic.iitm.ac.in">jigneshkumar@htic.iitm.ac.in</a></li>
+          <li><a href="https://github.com/jig-mistry">github.com/jig-mistry</a></li>
+          <li><a href="https://scholar.google.com/citations?user=txoNvjoAAAAJ&amp;hl=en">Google Scholar</a></li>
+          <li><a href="https://www.linkedin.com/in/jigneshmistry76/">LinkedIn</a></li>
+        </ul>
+        <footer>
+          <p>© <span id="year">2026</span> Jignesh Mistry</p>
+          <p>Brain volumes adapted from <a href="https://bigbrainproject.org/">BigBrain</a> (Amunts et al., Science 2013; CC BY-NC-SA 4.0) and
+            <a href="https://brainportal.humanbrain.in/publicview/index.html">DHARANI</a> fetal brains (Verma et al., J Comp Neurol 2025; CC BY 4.0).</p>
+          <p>24-week MRI: the same DHARANI specimen, native scan placed rigidly. Registration from my mcmadras pipeline run.</p>
+        </footer>
+      </div>
     </section>
   </main>
 
-  <footer class="wrap footer">
-    <p>© <span id="year">2026</span> Jignesh Mistry</p>
-    <p class="credits">
-      Brain volumes adapted from <a href="https://bigbrainproject.org/">BigBrain</a> (Amunts et al., Science 2013; CC BY-NC-SA 4.0) and
-      <a href="https://brainportal.humanbrain.in/publicview/index.html">DHARANI</a> fetal brains (Verma et al., J Comp Neurol 2025; CC BY 4.0).
-    </p>
-  </footer>
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
-  <!-- Animated neuronal network background (creates its own canvas) -->
-  <script src="assets/neuro.js"></script>
-  <script src="assets/js/brainvol.js"></script>
-  <script src="assets/js/story.js"></script>
+  <script src="assets/dive/stage.js"></script>
+  <script src="assets/dive/fibres.js"></script>
+  <script src="assets/dive/dive.js"></script>
 </body>
 </html>

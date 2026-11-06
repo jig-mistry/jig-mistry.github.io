@@ -32,9 +32,9 @@ def write(name, vol, spacing, extra):
     w, v, u = vol.shape[:3]
     raw = np.ascontiguousarray(vol).tobytes()
     with gzip.open(f"{OUT}/{name}.bin.gz", "wb", compresslevel=9) as f: f.write(raw)
-    meta = dict(id=name, file=f"{name}.bin.gz", dims=[u, v, w], spacing_mm=spacing,
-                size_mm=[round(u * spacing, 2), round(v * spacing, 2), round(w * spacing, 2)], **extra)
-    print(name, meta["dims"], meta["size_mm"], os.path.getsize(f"{OUT}/{name}.bin.gz") // 1024, "KB", flush=True)
+    meta = dict(id=name, data=f"{name}.bin.gz", grid=[u, v, w], voxel_mm=spacing,
+                extent_mm=[round(u * spacing, 2), round(v * spacing, 2), round(w * spacing, 2)], **extra)
+    print(name, meta["grid"], meta["extent_mm"], os.path.getsize(f"{OUT}/{name}.bin.gz") // 1024, "KB", flush=True)
     return meta
 
 def rotate_plane(a, ang, flip):
@@ -79,13 +79,13 @@ for sub in ["sub-001", "sub-002", "sub-003", "sub-004", "sub-005"]:
     if sub in TURN_CW:   # silhouette fit left this one 90 deg off (checked by eye): turn it clockwise in the side view
         vol = np.ascontiguousarray(np.rot90(vol, k=-1, axes=(0, 1)))
     metas.append(write(f"dharani_{info[sub]['gw']:02d}gw", vol, SP,
-                       dict(gw=info[sub]["gw"], subject=sub, brain=info[sub]["brain"])))
+                       dict(weeks=info[sub]["gw"], subject=sub, brain=info[sub]["brain"])))
 
 if ONLY:   # merge the rebuilt brains into the existing index and stop
-    idx = json.load(open(f"{OUT}/volumes.json"))
+    idx = json.load(open(f"{OUT}/brains.json"))
     new = {m["id"]: m for m in metas}
-    idx["volumes"] = [new.pop(v["id"], v) for v in idx["volumes"]] + list(new.values())
-    json.dump(idx, open(f"{OUT}/volumes.json", "w"), indent=1)
+    idx["brains"] = [new.pop(v["id"], v) for v in idx["brains"]] + list(new.values())
+    json.dump(idx, open(f"{OUT}/brains.json", "w"), indent=1)
     sys.exit(0)
 
 # ---- BigBrain 200 um -> 0.6 mm, RAS -> (w=A, v=S, u=R) ----
@@ -102,6 +102,8 @@ vol = finish((dens - lo) / (hi - lo), m, 0.6, 3.0, smooth=0.8, smooth_axis0=Fals
 vol = vol.transpose(1, 2, 0, 3)                                     # (A, S, R, 2) = (w, v, u)
 metas.append(write("bigbrain", vol, 0.6, dict(name="BigBrain")))
 
-json.dump(dict(axes="u: left->right, v: inferior->superior, w: posterior->anterior; uint8 pairs (density, depth), C order [w][v][u][2], gzip",
-               credit="DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline (14 weeks: VALIS); BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
-               volumes=metas), open(f"{OUT}/volumes.json", "w"), indent=1)
+json.dump(dict(layout=dict(type="uint8", channels=["stain density", "depth below the outer surface"],
+                                order="slice (back to front), row (bottom to top), column (left to right), channel; last index fastest",
+                                compression="gzip"),
+               sources="DHARANI fetal brains (Verma et al., J Comp Neurol 2025, CC BY 4.0), stacked with the mcmadras pipeline (14 weeks: VALIS); BigBrain (Amunts et al., Science 2013, CC BY-NC-SA 4.0). Downsampled for the web.",
+               brains=metas), open(f"{OUT}/brains.json", "w"), indent=1)
