@@ -23,9 +23,15 @@ the content and `assets/dive/style.css` for the styling.
 - `assets/volumes/hist24/`: the 24-week Nissl at 128 µm for the blade's cut face, as WebP sheets of sections, from the
   same 64 µm stack as `dharani_24gw` (`tools/build_hist24_hires.py`). Lost sections are filled and stain is evened out
   against the web volume. Loaded last and only on wide screens; the rest of the bench stays on the 0.36 mm volume.
+- `assets/volumes/hb02*`: the stroke brain in its ex vivo MRI space (`tools/build_hb02.py`). `hb02_meta` holds the block
+  ids, the lab's segmentation of the lesion on diffusion MRI, the cerebellum, and the lesion's brightness on diffusion MRI.
+- `assets/img/hb02/`: the one face the stroke stop looks straight at, in every modality on the same surface: the MRI and the
+  diffusion scan (`tools/build_hb02_faces.py`), a whole 60 µm Nissl section, the block-face photo of that section
+  (`tools/fit_hb02_blockface.py`), and the neighbouring H&E and immunostained sections with the lab's hand outline of
+  neuronal loss (`tools/fit_hb02_stains.py`). `*_s` are the half-size images phones load.
 - `assets/img/ge/nissl_cells_r.webp`: the deepest Nissl level, lossless at the scan's 0.5 µm per pixel, from the
   `_lossless.jp2` of the section, with blue carrying the nuclei where red clips (`tools/media_nissl_cells.py`).
 - `assets/img/`: section images, zoom levels and renders. Immunostained and myelin images are shown without marker names.
 - `tools/`: the scripts that made these files (paths are local to the machines they ran on).
 
-Credits: BigBrain (Amunts et al., Science 2013; CC BY-NC-SA 4.0); DHARANI (Verma et al., J Comp Neurol 2025; CC BY 4.0).
+Credits: BigBrain (Amunts et al., Science 2013; CC BY-NC-SA 4.0); DHARANI (Verma et al., J Comp Neurol 2025; CC BY 4.0); stroke brain from the C-Stroke atlas (Nanjappa et al., preprint; http://c-stroke.humanbrain.in/).

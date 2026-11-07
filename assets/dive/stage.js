@@ -53,6 +53,13 @@ vec3 ramp(float d) {
   if (d < 0.85) return mix(c2, c3, (d - 0.62) / 0.23);
   return mix(c3, c4, (d - 0.85) / 0.15);
 }
+vec3 mriRamp(float d) {
+  d = clamp(d, 0.0, 1.0);
+  vec3 a = vec3(0.030, 0.028, 0.050), b = vec3(0.300, 0.300, 0.350), c = vec3(0.937, 0.918, 0.875);
+  return d < 0.5 ? mix(a, b, d * 2.0) : mix(b, c, d * 2.0 - 1.0);
+}
+// a face of the frozen block: unstained, so grey matter is the darker tissue
+vec3 blockRamp(float d) { return mix(vec3(0.78, 0.74, 0.66), vec3(0.20, 0.17, 0.19), smoothstep(0.05, 0.75, d)); }
 `;
 
   const VERT = `#version 300 es
@@ -85,15 +92,75 @@ uniform sampler2D wedgeImageX, wedgeImageY, wedgeImageZ;
 uniform float wedgeWeight;
 uniform vec3 wedgeTexel;
 uniform float pixelFootprint;
+// the stroke brain: blocks that stand apart, a glass view of the stroke, and real images on the one face looked at
+// straight on: the MRI (its alpha is the tissue), the two images the face is between, and the two outlines
+uniform sampler3D metaVol, mriFace;
+uniform sampler2D faceMri, faceA, faceB, faceLines;
+uniform vec2 faceMode;                  // per image: 0 MRI grey, 1 Nissl grey, 2 its own colour
+uniform float strokeOn, strokeGlass, strokeSpread, strokeDrop, strokeLift, strokeFaces, strokeImages, strokeLod, faceMix, faceHist, strokeSkip;
+uniform vec3 strokePlane[4];            // block edges: x = a.x * z + a.y * y + a.z
 in vec2 screenPos;
 out vec4 fragColour;
 ${RAMP}
+const vec3 LIME = vec3(0.839, 1.0, 0.247);
 float rnd(vec2 p) { return fract(sin(dot(p, vec2(41.31, 289.17))) * 15731.743); }
+
+vec3 readAt;                            // where sampleAt last read the brain
+int readBlock = -1;
+// the cerebellum and stem, smooth, so they come away along a surface and not along voxels
+float cerebAt(vec3 q) {
+  vec3 tc = q / (2.0 * box) + 0.5;
+  if (any(lessThan(tc, vec3(0.0))) || any(greaterThan(tc, vec3(1.0)))) return 0.0;
+  return texture(metaVol, tc).b;
+}
+float edgeOf(int i, vec3 q) { vec3 a = strokePlane[i]; return a.x * q.z + a.y * q.y + a.z; }
+// which block a point in the opened-out brain belongs to, and where that is in the whole brain
+bool strokeRead(vec3 p, out vec3 q) {
+  q = p + vec3(0.0, strokeDrop, -strokeDrop * 0.5);
+  readBlock = 5;
+  // the cerebellum and stem sit in the lower half; once they are back in place (lift up) the blocks take them again
+  bool apart = strokeDrop > 1e-4;
+  if (apart && q.y < 0.0 && cerebAt(q) > 0.5) return true;
+  for (int i = 0; i < 5; i++) {
+    // the two left-most blocks lift away to show the face through the stroke
+    q = p - vec3((float(i) - 2.0) * strokeSpread, i < 2 ? strokeLift : 0.0, 0.0);
+    if ((i == 0 || q.x > edgeOf(i - 1, q)) && (i == 4 || q.x <= edgeOf(i, q))) {
+      // a lifted block's slab runs at every height, and on a tilted cut it would hide the face below: it only counts
+      // where the block now is
+      if (i < 2 && strokeLift > 1e-4 && any(greaterThan(abs(q), box))) continue;
+      readBlock = i; return !apart || q.y >= 0.0 || cerebAt(q) < 0.5;
+    }
+  }
+  return false;
+}
+vec3 faceColour(vec4 f, float mode) { return mode < 0.5 ? mriRamp(f.r) : mode < 1.5 ? ramp(f.r) : f.rgb; }
+float outline(float s) { return smoothstep(0.38, 0.46, s) * (1.0 - smoothstep(0.54, 0.62, s)); }
+vec3 strokeFace(vec3 q) {
+  // a sample just inside a cut is read on the cut itself: the cut is a plane, the ray's steps are not
+  if (strokeSpread > 1e-4 && readBlock >= 0 && readBlock < 5) {
+    if (readBlock > 0) { float e = edgeOf(readBlock - 1, q); if (q.x - e < 2.0 * marchStep) q.x = e + 1e-4; }
+    if (readBlock < 4) { float e = edgeOf(readBlock, q); if (e - q.x < 2.0 * marchStep) q.x = e - 1e-4; }
+  }
+  vec3 tc = q / (2.0 * box) + 0.5;
+  vec3 c = mriRamp(texture(mriFace, tc.zyx).r);
+  float s = texture(metaVol, tc).g, h = 0.0;
+  if (strokeImages > 0.5 && strokeLift > 0.001 && readBlock == 2 && q.x < edgeOf(1, q) + 0.06) {
+    vec2 uv = tc.zy;
+    float m = textureLod(faceMri, uv, strokeLod).a;
+    vec4 a = textureLod(faceA, uv, strokeLod), b = textureLod(faceB, uv, strokeLod);
+    vec3 f = mix(mix(c, faceColour(a, faceMode.x), a.a), mix(c, faceColour(b, faceMode.y), b.a), faceMix);
+    c = mix(c, f, m);                                    // the images hold the cerebrum; the rest stays on the MRI
+    vec2 l = texture(faceLines, uv).rg;                  // the outlines of this face, sharper than the volume's
+    s = mix(s, l.r, m); h = l.g * m;
+  }
+  c = mix(mix(c, LIME, 0.1 * smoothstep(0.5, 0.8, s) * (1.0 - faceHist)), LIME, 0.9 * outline(s));
+  return mix(c, vec3(0.98, 0.95, 0.88), 0.95 * faceHist * outline(h));
+}
 
 // x = density, y = depth below the surface, z = how much tissue is here. Both brains are read at the same place
 // relative to one box that changes size, so shape and size move together. Tissue found in only one of them goes
 // away from the surface inwards, or arrives from the inside out: the folds fill in, they do not dissolve.
-vec3 sampleAt(vec3 p) {
+vec3 sampleBrain(vec3 p) {
   vec3 tc = p / (2.0 * box) + 0.5;
   if (any(lessThan(tc, vec3(0.0))) || any(greaterThan(tc, vec3(1.0)))) return vec3(0.0);
   vec2 a = texture(brainFrom, tc).rg;
@@ -109,7 +176,16 @@ vec3 sampleAt(vec3 p) {
   float wa = inA * (1.0 - morph), wb = inB * morph, total = wa + wb + 1e-4;
   return vec3((wa * a.r + wb * b.r) / total, (wa * a.g + wb * b.g) / total, amount);
 }
-float surfaceField(vec3 p) { vec3 v = sampleAt(p); return v.y + 0.25 * v.z; }
+vec3 sampleAt(vec3 p) {
+  if (strokeOn > 0.5 && strokeSpread + strokeDrop > 1e-5) {
+    vec3 q;
+    if (!strokeRead(p, q)) { readAt = p; return vec3(0.0); }
+    p = q;
+  }
+  readAt = p;
+  return sampleBrain(p);
+}
+float surfaceField(vec3 p) { vec3 v = sampleBrain(p); return v.y + 0.25 * v.z; }
 
 bool removed(vec3 p, vec3 hs) {
   if (wedge > 0.001 && all(greaterThan(p * wedgeSide, hs * (1.0 - wedge) - vec3(1e-4)))) return true;
@@ -125,17 +201,37 @@ void layer(inout vec4 dst, vec3 rgb, float a) {
 void main() {
   vec2 aim = screenPos - screenOffset;
   vec3 dir = normalize(camZ + aim.x * lensSpread.x * camX + aim.y * lensSpread.y * camY);
-  vec3 hs = box;
+  vec3 hs = box + strokeOn * vec3(2.0 * strokeSpread, strokeDrop + strokeLift, strokeDrop * 0.5);
   vec3 perUnit = 1.0 / dir;
   vec3 t0 = (-hs - camPos) * perUnit, t1 = (hs - camPos) * perUnit;
   vec3 tn3 = min(t0, t1), tf3 = max(t0, t1);
   float tn = max(max(tn3.x, tn3.y), tn3.z), tf = min(min(tf3.x, tf3.y), tf3.z);
   float tBox = max(tn, 0.0);
   if (tBox >= tf) { fragColour = vec4(0.0); return; }
+  if (strokeOn > 0.5 && strokeSpread + strokeDrop > 1e-5) {
+    // the opened-out brain is six boxes (five blocks and the cerebellum), not the one round all of them: a ray only
+    // needs the stretch of its path inside them, and one that misses them all needs nothing
+    float lo = 1e9, hi = -1e9;
+    for (int i = 0; i < 6; i++) {
+      vec3 c = i < 5 ? vec3((float(i) - 2.0) * strokeSpread, i < 2 ? strokeLift : 0.0, 0.0) : vec3(0.0, -strokeDrop, strokeDrop * 0.5);
+      vec3 a0 = (c - box - camPos) * perUnit, a1 = (c + box - camPos) * perUnit;
+      vec3 n3 = min(a0, a1), f3 = max(a0, a1);
+      float en = max(max(n3.x, n3.y), n3.z), ex = min(min(f3.x, f3.y), f3.z);
+      if (en < ex) { lo = min(lo, en); hi = max(hi, ex); }
+    }
+    tBox = max(tBox, lo); tf = min(tf, hi);
+    if (tBox >= tf) { fragColour = vec4(0.0); return; }
+  }
   float planeX = mix(-hs.x * 1.05, slicePlane, sliceAmount);
   // nothing lives in front of the clip plane, so a ray heading into it can start there
   float tMarch = tBox;
   if (sliceAmount > 0.001 && dir.x > 1e-4) tMarch = max(tMarch, (planeX - camPos.x) / dir.x);
+  // once the two left blocks are lifted out of sight nothing lies in front of the face: start there, not 12 cm before it
+  if (strokeOn > 0.5 && strokeSkip > 0.5) {
+    vec3 a = strokePlane[1];
+    float across = dir.x - a.x * dir.z - a.y * dir.y;
+    if (across > 1e-3) tMarch = max(tMarch, (a.x * camPos.z + a.y * camPos.y + a.z - camPos.x) / across - 2.0 * marchStep);
+  }
   float t = tMarch + marchStep * rnd(gl_FragCoord.xy);
   vec4 pixel = vec4(0.0);
   vec3 shellCol = vec3(0.52, 0.50, 0.62);
@@ -178,25 +274,33 @@ void main() {
     vec3 p = camPos + dir * t;
     if (!removed(p, hs)) {
       vec3 v = sampleAt(p);
+      vec3 here = readAt;
       float d = v.x;
       if (d > 0.01 && v.z > 0.02) {
         float depth = v.y;
         float lit = 1.0, hollow = 0.0;
         if (depth < 0.45 || morph > 0.001) {
-          float e = 0.006, here = depth + 0.25 * v.z;
-          vec3 g = vec3(surfaceField(p + vec3(e, 0, 0)), surfaceField(p + vec3(0, e, 0)), surfaceField(p + vec3(0, 0, e))) - here;
+          float e = 0.006, field = depth + 0.25 * v.z;
+          vec3 g = vec3(surfaceField(here + vec3(e, 0, 0)), surfaceField(here + vec3(0, e, 0)), surfaceField(here + vec3(0, 0, e))) - field;
           float g2 = dot(g, g);
           if (g2 > 1e-6) {
             vec3 n = -g * inversesqrt(g2);
             lit = 0.55 + 0.45 * max(dot(n, lightDir), 0.0) + 0.25 * pow(1.0 - abs(dot(n, dir)), 3.0);
             // step out along the normal: on a crown that is air, in a sulcus it is the opposite bank
-            if (foldShade > 0.001) hollow = foldShade * (0.55 * sampleAt(p + n * foldReach).z + 0.45 * sampleAt(p + n * (foldReach * 2.2)).z);
+            if (foldShade > 0.001 && morph < 0.001) hollow = foldShade * (0.55 * sampleBrain(here + n * foldReach).z + 0.45 * sampleBrain(here + n * (foldReach * 2.2)).z);
           }
         }
         float skin = morph > 0.001 ? 1.0 : 1.0 - smoothstep(0.05, 0.35, depth);
         vec3 shell = mix(shellCol, vec3(0.13, 0.09, 0.40), hollow * 0.9);
-        vec3 col = mix(mix(ramp(d), faceRamp(d), faceTone), shell, skin * 0.85) * lit * (1.0 - 0.22 * hollow);
+        vec3 inner = strokeOn > 0.5 && strokeFaces > 0.5 ? strokeFace(here) : mix(ramp(d), faceRamp(d), faceTone);
+        vec3 col = mix(inner, shell, skin * 0.85) * lit * (1.0 - 0.22 * hollow);
         float dens = smoothstep(0.01, 0.25, d) * mix(180.0, 420.0, skin) * v.z;
+        if (strokeOn > 0.5 && strokeGlass > 0.001) {
+          // the shell goes to glass and the stroke shows through it
+          dens *= mix(1.0, 0.05 * skin, strokeGlass);
+          float s = texture(metaVol, here / (2.0 * box) + 0.5).a * strokeGlass;     // its brightness on diffusion MRI
+          if (s > 0.02) layer(pixel, LIME * (0.3 + 0.7 * s * s), 1.0 - exp(-s * 75.0 * marchStep));
+        }
         layer(pixel, col, 1.0 - exp(-dens * marchStep));
       }
     }
@@ -235,14 +339,6 @@ const vec3 LIME = vec3(0.839, 1.0, 0.247);
 float rnd(vec2 p) { return fract(sin(dot(p, vec2(41.31, 289.17))) * 15731.743); }
 float h1(float n) { return fract(sin(n * 12.9898 + 4.1) * 43758.5453); }
 float h3(vec3 c) { return fract(sin(dot(c, vec3(12.99, 78.23, 37.72))) * 43758.5453); }
-
-vec3 mriRamp(float d) {
-  d = clamp(d, 0.0, 1.0);
-  vec3 a = vec3(0.030, 0.028, 0.050), b = vec3(0.300, 0.300, 0.350), c = vec3(0.937, 0.918, 0.875);
-  return d < 0.5 ? mix(a, b, d * 2.0) : mix(b, c, d * 2.0 - 1.0);
-}
-// a face of the frozen block: unstained, so grey matter is the darker tissue
-vec3 blockRamp(float d) { return mix(vec3(0.78, 0.74, 0.66), vec3(0.20, 0.17, 0.19), smoothstep(0.05, 0.75, d)); }
 
 vec2 texAt(sampler3D v, vec3 p) {
   vec3 tc = p / (2.0 * box) + 0.5;
@@ -518,11 +614,14 @@ void main() {
     catch (e) { console.warn('stage:', e); return null; }
     const V = slots(volProg), C = slots(compProg), B = slots(benchProg);
 
-    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 7-11 flat layers; 12 fine histology; 15 scratch
+    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 7-11 flat layers (7-10 hold the
+    // stroke face during the volume pass); 12 fine histology (stroke blocks in the volume pass); 13 stroke MRI; 15 scratch
     const SCRATCH = 15;
     gl.useProgram(volProg);
     gl.uniform1i(V.brainFrom, 0); gl.uniform1i(V.brainTo, 1); gl.uniform1i(V.planeImage, 2);
     gl.uniform1i(V.wedgeImageX, 3); gl.uniform1i(V.wedgeImageY, 4); gl.uniform1i(V.wedgeImageZ, 5);
+    gl.uniform1i(V.metaVol, 12); gl.uniform1i(V.mriFace, 13);
+    gl.uniform1i(V.faceMri, 7); gl.uniform1i(V.faceA, 8); gl.uniform1i(V.faceB, 9); gl.uniform1i(V.faceLines, 10);
     gl.useProgram(benchProg);
     gl.uniform1i(B.histVol, 0); gl.uniform1i(B.mriVol, 1); gl.uniform1i(B.fineVol, 12);
     gl.useProgram(compProg);
@@ -536,12 +635,12 @@ void main() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    function volumeTexture(dims, data) {
+    function volumeTexture(dims, data, rgba = false) {
       const tex = gl.createTexture();
       gl.activeTexture(gl.TEXTURE0 + SCRATCH);
       gl.bindTexture(gl.TEXTURE_3D, tex);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      gl.texImage3D(gl.TEXTURE_3D, 0, gl.RG8, dims[0], dims[1], dims[2], 0, gl.RG, gl.UNSIGNED_BYTE, data);
+      gl.texImage3D(gl.TEXTURE_3D, 0, rgba ? gl.RGBA8 : gl.RG8, dims[0], dims[1], dims[2], 0, rgba ? gl.RGBA : gl.RG, gl.UNSIGNED_BYTE, data);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
                             [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
                             [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_3D, k, v);
@@ -549,28 +648,36 @@ void main() {
     }
     const emptyVol = volumeTexture([1, 1, 1], new Uint8Array(2));
 
-    // grey + alpha is all any section holds (for an RGB image the luminance channel takes red, which is
-    // where a violet stain has its contrast), at half the memory of RGBA
-    function greyImage(src) {
+    // grey + alpha is all most sections hold (for an RGB image the luminance channel takes red, which is
+    // where a violet stain has its contrast), at half the memory of RGBA; the stains in their own colours take RGBA
+    function imageTexture(img, rgba = false) {
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      const fmt = rgba ? gl.RGBA : gl.LUMINANCE_ALPHA;
+      gl.texImage2D(gl.TEXTURE_2D, 0, fmt, fmt, gl.UNSIGNED_BYTE, img);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                            [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      return tex;
+    }
+    function fetchImage(src) {
       return new Promise((done, fail) => {
         const img = new Image();
         img.onload = async () => {
           try { await img.decode(); } catch (e) { /* already decoded or undecodable: the upload will tell */ }
-          const tex = gl.createTexture();
-          gl.activeTexture(gl.TEXTURE0 + SCRATCH);
-          gl.bindTexture(gl.TEXTURE_2D, tex);
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-          gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-          gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, img);
-          gl.generateMipmap(gl.TEXTURE_2D);
-          for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
-                                [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
-          done({ tex, img, w: img.naturalWidth, h: img.naturalHeight });
+          done(img);
         };
         img.onerror = () => fail(new Error('could not load ' + src));
         img.src = src;
       });
+    }
+    async function greyImage(src, rgba = false) {
+      const img = await fetchImage(src);
+      return { tex: imageTexture(img, rgba), img, w: img.naturalWidth, h: img.naturalHeight };
     }
 
     async function inflate(url) {
@@ -582,8 +689,8 @@ void main() {
 
     // ---- content ----
     const ASSETS = opts.assets;
-    // the story of the brains: BigBrain shrinks to 24 weeks, on down to 14, then grows back to 24
-    const CHAIN = ['bigbrain', 'dharani_24gw', 'dharani_22gw', 'dharani_21gw', 'dharani_17gw', 'dharani_14gw',
+    // the story of the brains: BigBrain turns into the stroke brain, which shrinks to 24 weeks, on down to 14, then back to 24
+    const CHAIN = ['bigbrain', 'hb02', 'dharani_24gw', 'dharani_22gw', 'dharani_21gw', 'dharani_17gw', 'dharani_14gw',
                    'dharani_17gw', 'dharani_21gw', 'dharani_22gw', 'dharani_24gw'];
     const MM = 0.01;
     const vols = {};
@@ -637,9 +744,9 @@ void main() {
       return GEOM.nisslToPlane(...nisslPoint(r[0] + (r[2] - r[0]) * cell.u, r[1] + (r[3] - r[1]) * cell.v));
     }
 
-    // the histology at section resolution, for the blade's cut face only: sheets of sections, one 3D texture.
-    // Layers run along the sectioning axis, so the shader reads it as .zyx
-    async function loadFine(dir) {
+    // a volume kept as sheets of sections, into one 3D texture: the histology at section resolution for the blade's
+    // cut face, and the stroke brain's cut faces. Layers run along the sectioning axis, so shaders read it as .zyx
+    async function loadSheets(dir) {
       const m = await fetch(dir + 'index.json').then((r) => r.json());
       const [nu, nv, nw] = m.grid;
       const tex = gl.createTexture();
@@ -673,8 +780,12 @@ void main() {
           gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, k * m.per + j, nw, nv, 1, gl.RED, gl.UNSIGNED_BYTE, section);
         }
       }
-      bench.fine = { tex, t0: performance.now() };
-      if (opts.onFine) opts.onFine(m.voxel_mm);
+      return { tex, mm: m.voxel_mm };
+    }
+    async function loadFine(dir) {
+      const f = await loadSheets(dir);
+      bench.fine = { tex: f.tex, t0: performance.now() };
+      if (opts.onFine) opts.onFine(f.mm);
       opts.onChange();
     }
 
@@ -699,6 +810,16 @@ void main() {
         try { const r = await greyImage(`${ASSETS}img/cyto/bb_cut_${k}.webp`); cuts[k] = { tex: r.tex, rows: r.h, t0: performance.now() }; opts.onChange(); }
         catch (e) { console.warn('stage:', e); }
       }));
+      await fetchVol('hb02');
+      try {
+        if (vols.hb02.tex) {
+          // stored one channel after another, which packs better; a texture wants them side by side
+          const raw = await inflate(base + vols.hb02.meta.meta), n = raw.length / 4, rgba = new Uint8Array(raw.length);
+          for (let c = 0; c < 4; c++) for (let i = 0, o = c; i < n; i++, o += 4) rgba[o] = raw[c * n + i];
+          stroke.meta = volumeTexture(vols.hb02.meta.meta_grid, rgba, true); opts.onChange();
+        }
+      }
+      catch (e) { console.warn('stage: no stroke map', e); }
       // the flat chain before the fetal volumes: a jump down the ruler must land on something
       try {
         const spec = await fetch(ASSETS + 'img/ge/nissl_zoom.json').then((r) => r.json());
@@ -711,6 +832,17 @@ void main() {
           opts.onChange();
         }
       } catch (e) { console.warn('stage:', e); }
+      try {
+        stroke.mri = (await loadSheets(base + 'hb02_mri/')).tex; opts.onChange();
+        // in the order the stop shows them, phones at half size; only the MRI (the face's tissue) and the outlines stay
+        // on the GPU, the rest go up as the stop comes near them (syncFaces)
+        stroke.lines = (await greyImage(`${ASSETS}img/hb02/face_lines_s.webp`, true)).tex;
+        for (const [n] of FACES) {
+          if (stroke.imgs[n]) continue;
+          stroke.imgs[n] = await fetchImage(`${ASSETS}img/hb02/face_${n}${opts.small ? '_s' : ''}.webp`);
+          if (n === 'mri') { stroke.faceMri = stroke.faces.mri = imageTexture(stroke.imgs.mri); opts.onChange(); }
+        }
+      } catch (e) { console.warn('stage: no stroke faces', e); }
       try { const r = await greyImage(ASSETS + 'img/ge/face_24gw.webp'); face = { tex: r.tex, rows: r.h }; opts.onChange(); }
       catch (e) { console.warn('stage:', e); }
       await fetchVol('dharani_24gw');
@@ -720,6 +852,8 @@ void main() {
       } catch (e) { console.warn('stage: no MRI', e); }
       for (const id of ['dharani_22gw', 'dharani_21gw', 'dharani_17gw', 'dharani_14gw']) await fetchVol(id);
       if (fine) {
+        // the 128 um histology is the heaviest thing on the page: not while the stroke brain's face is on screen
+        while (opts.holdFine && opts.holdFine()) await new Promise((r) => setTimeout(r, 500));
         try { await loadFine(fine); }
         catch (e) { console.warn('stage: keeping the coarse histology', e); }
       }
@@ -779,6 +913,23 @@ void main() {
 
     // ---- the bench: histology and MRI of the same brain, one camera ----
     const bench = { hist: null, mri: null, fine: null };
+    const stroke = { meta: null, mri: null, faceMri: null, lines: null, faces: {}, imgs: {} };
+    // the stroke stop's face, in order (the Nissl comes back at the end, for the outlines); mode 0 MRI grey, 1 Nissl
+    // grey, 2 the image's own colour
+    const FACES = [['mri', 0], ['dwi', 0], ['bfi', 2], ['nissl', 1], ['he', 2], ['ihc1', 2], ['ihc2', 2], ['nissl', 1]];
+    // all eight at once are about 170 MB of GPU memory: hold the one shown and the next two, none away from the stop
+    function syncFaces(fi) {
+      const want = new Set();
+      if (fi !== null) for (let i = Math.floor(fi); i <= Math.min(FACES.length - 1, Math.floor(fi) + 2); i++) want.add(i);
+      const names = new Set([...want].map((i) => FACES[i][0]));
+      for (const n of Object.keys(stroke.faces)) {
+        if (n !== 'mri' && !names.has(n)) { gl.deleteTexture(stroke.faces[n]); delete stroke.faces[n]; }
+      }
+      for (const i of want) {
+        const [n, mode] = FACES[i];
+        if (!stroke.faces[n] && stroke.imgs[n]) stroke.faces[n] = imageTexture(stroke.imgs[n], mode === 2);
+      }
+    }
     function benchPass(cam, now) {
       const h = vols.dharani_24gw;
       if (!h || !h.tex) return false;
@@ -841,6 +992,7 @@ void main() {
       const half = va.half.map((h, k) => lerp(h, vb.half[k], mixv));
       const is24 = va === vols.dharani_24gw && vb === va;
       const isBig = va === vols.bigbrain && vb === va;
+      const open = cam.stroke && va === vols.hb02 && vb === va && stroke.meta ? cam.stroke : null;
 
       // real sections take over as the cut planes arrive, as on the current site
       let faceOn = 0;
@@ -856,8 +1008,12 @@ void main() {
       }
       // while a section fills the cut, rays stop at it: screen resolution is affordable and needed
       const sharp = faceOn > 0.5 || cutOn > 0.5;
-      // cut faces are drawn at the canvas's own resolution: rays stop at them, so it is affordable
-      fitMarch(sharp ? Math.min(canvas.width / W, Math.sqrt(3.4e6 / (W * H))) * Math.max(quality, 0.8) : 0.62 * quality);
+      // cut faces are drawn at the canvas's own resolution: rays stop at them, so it is affordable. The stroke face
+      // costs more per ray, and its images hold no more than about 2 megapixels of the screen's worth
+      const strokeSharp = open && open.lift > 0.9 && stroke.faceMri;
+      fitMarch(sharp ? Math.min(canvas.width / W, Math.sqrt(3.4e6 / (W * H))) * Math.max(quality, 0.8)
+        : strokeSharp ? Math.min(canvas.width / W, Math.sqrt(2.2e6 / (W * H))) * Math.max(quality, 0.6)
+        : (open && open.spread > 0.02 ? 0.8 : 0.62) * quality);
 
       gl.useProgram(volProg);
       gl.bindFramebuffer(gl.FRAMEBUFFER, march.fb);
@@ -869,6 +1025,34 @@ void main() {
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, cuts.x ? cuts.x.tex : blank);
       gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, cuts.y ? cuts.y.tex : blank);
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, cuts.z ? cuts.z.tex : blank);
+      gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_3D, stroke.meta || emptyVol);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_3D, stroke.mri || emptyVol);
+      // the face is between two of its images; one not here yet holds the last that is
+      const fi = open ? Math.min(FACES.length - 1, Math.max(0, open.face)) : 0, i0 = Math.floor(fi), i1 = Math.min(FACES.length - 1, i0 + 1);
+      syncFaces(open && open.lift > 0.001 ? fi : null);
+      let ia = i0;
+      while (ia > 0 && !stroke.faces[FACES[ia][0]]) ia--;
+      const ta = stroke.faces[FACES[ia][0]], tb = ia === i0 ? stroke.faces[FACES[i1][0]] : null;
+      gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, stroke.faceMri || blank);
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, ta || blank);
+      gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, tb || ta || blank);
+      gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, stroke.lines || blank);
+      gl.uniform1f(V.strokeOn, open ? 1 : 0);
+      if (open) {
+        gl.uniform1f(V.strokeGlass, open.glass);
+        gl.uniform1f(V.strokeSpread, open.spread * 15 * MM);
+        gl.uniform1f(V.strokeDrop, open.drop * 34 * MM);
+        gl.uniform1f(V.strokeLift, open.lift * 190 * MM);
+        gl.uniform1f(V.strokeSkip, open.lift > 0.999 ? 1 : 0);
+        gl.uniform1f(V.faceMix, tb ? fi - i0 : 0);
+        gl.uniform2f(V.faceMode, FACES[ia][1], FACES[i1][1]);
+        gl.uniform1f(V.faceHist, stroke.lines ? open.hist : 0);
+        gl.uniform1f(V.strokeFaces, stroke.mri ? 1 : 0);
+        gl.uniform1f(V.strokeImages, stroke.faceMri && stroke.lines && ta ? 1 : 0);
+        // the image's texels against this screen, so a 60 um section does not shimmer when it is drawn smaller
+        gl.uniform1f(V.strokeLod, Math.max(0, Math.log2((cam.F / march.h) / 0.06)));
+        gl.uniform3fv(V['strokePlane[0]'], va.meta.planes.flatMap((p) => [p.y, p.z, p.x * MM]));
+      }
       gl.uniform3fv(V.box, half);
       gl.uniform1f(V.morph, mixv);
       gl.uniform2f(V.depthGain, va.gain || 2, vb.gain || 2);
@@ -997,6 +1181,8 @@ void main() {
 
     return {
       load, resize, draw, sectionCentre, cellTarget, aim, printSection,
+      strokeReady: () => FACES.every(([n]) => stroke.imgs[n]),
+      strokeFocus: () => (vols.hb02 && vols.hb02.meta.face_focus) || [0, 0],
       halfMm: () => (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm.map((x) => x / 2) : [30.6, 37.8, 34.2]),
       setQuality: (q) => { quality = q; },
       planeX: () => GEOM.clipx * (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm[0] / 2 : 30.6),

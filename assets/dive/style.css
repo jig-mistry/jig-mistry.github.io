@@ -301,3 +301,6 @@ html:not(.dive) .bench-panel .sliders, html:not(.dive) #showme, html:not(.dive) 
 .dive .bridge { display: block; position: absolute; left: clamp(24px, 5vw, 80px); top: 50%; transform: translateY(-50%); width: min(38vw, 560px); visibility: hidden;
   font: italic 300 clamp(24px, 2.2vw, 32px)/1.25 var(--text); text-shadow: 0 0 22px rgba(8, 7, 15, .95), 0 0 6px rgba(8, 7, 15, .8); }
 .dive.narrow .bridge { left: 16px; right: 16px; top: auto; bottom: 112px; transform: none; width: auto; padding: 12px 14px; margin: 0 -14px; background: rgba(8, 7, 15, .66); font-size: 22px; }
+
+/* the stroke stop: the steps sit on the tissue while the face fills the view */
+.dive #stroke .reg-step { padding: 10px 14px; margin: 0 -14px; background: rgba(8, 7, 15, .72); }

@@ -191,19 +191,24 @@
     onHistology: () => { printTarget(); },
     onFine: (mm) => { tagH.textContent = `Nissl histology, ${Math.round(mm * 1000)} µm`; tagM.textContent = 'T1 MRI, 0.29 × 0.29 × 0.5 mm'; },
     mri: 'assets/volumes/dharani_24gw_mri.bin.gz',
+    small: Math.min(innerWidth, innerHeight) < 760,
+    holdFine: () => t > 1.9 && t < 2.5,
   });
   if (!stage) { plainPage(); return; }
 
   // ---------- keyframes ----------
-  const track = (keys) => (t) => {
+  // the keyframes were laid out before the stroke brain's stop: they run on a clock that waits at 1.5 while it plays
+  const clock = (t) => (t <= 1.5 ? t : t < 2.5 ? 1.5 : t - 1);
+  const live = (keys) => (t) => {
     if (t <= keys[0][0]) return keys[0][1];
     for (let i = 0; i < keys.length - 1; i++) {
       if (t < keys[i + 1][0]) return lerp(keys[i][1], keys[i + 1][1], smooth(keys[i][0], keys[i + 1][0], t));
     }
     return keys[keys.length - 1][1];
   };
-  // stops: 0 hero 1 about 2 fetal 3 whereismyslice 4 registration 5 one section 6 eminence 7 migrating
-  //        8 cytoarchitecture 9 myelin 10 cells 11 playground 12 publications 13 contact
+  const track = (keys) => { const at = live(keys); return (t) => at(clock(t)); };
+  // stops: 0 hero 1 about 2 stroke, then on the waiting clock: 2 fetal 3 whereismyslice 4 registration 5 one section
+  //        6 eminence 7 migrating 8 cytoarchitecture 9 myelin 10 cells 11 playground 12 publications 13 contact
   const K = {
     az: track([[0, -38], [0.5, -30], [1, -8], [1.5, -2], [2, -14], [2.5, -24], [3, -32], [3.55, -32], [3.95, 52], [4.22, 52], [4.3, 22], [4.5, 8], [4.72, 0]]),
     el: track([[0, 16], [0.5, 15], [1, 22], [2, 14], [3, 16], [3.55, 16], [3.95, 20], [4.22, 20], [4.3, 12], [4.5, 5], [4.72, 0]]),
@@ -247,6 +252,39 @@
     checker: track([[4.395, 0], [4.415, 1], [4.468, 1], [4.484, 0]]),
     mis: track([[4.262, 0], [4.285, 1], [4.42, 1], [4.455, 0]]),
   };
+  // the stroke brain's stop, on the real clock: BigBrain turns into it, the stroke shows, the blocks part, the camera
+  // comes close on the stroke and the face goes through every modality, and it closes up
+  const chainV = K.v;
+  const STROKE = {
+    v: live([[1.56, 0], [1.86, 1]]),
+    // az 0 looks along +x from the left side, where the stroke is; added to the clock's -2 and 18 degrees
+    az: live([[1.5, 0], [2.0, -36], [2.08, -36], [2.14, -48], [2.21, 2], [2.457, 2], [2.495, 0]]),
+    el: live([[1.5, 0], [2.0, -2], [2.14, -2], [2.21, -18], [2.457, -18], [2.495, 0]]),
+    glass: live([[1.97, 0], [2.02, 1], [2.07, 1], [2.1, 0]]),
+    spread: live([[2.09, 0], [2.14, 1], [2.47, 1], [2.493, 0]]),
+    drop: live([[2.09, 0], [2.14, 1], [2.16, 1], [2.2, 0]]),             // the cerebellum comes back before the face is shown
+    lift: live([[2.17, 0], [2.21, 1], [2.46, 1], [2.475, 0]]),
+    shift: live([[2.14, 0], [2.21, -1.45], [2.457, -1.45], [2.495, 0]]),   // the face moves clear of the ruler
+    clear: live([[2.15, 0], [2.21, 1], [2.457, 1], [2.49, 0]]),             // and out from under the scrim
+    zoom: live([[2.21, 0], [2.23, 1], [2.457, 1], [2.47, 0]]),              // close on the stroke
+    // which image the face shows (stage.js FACES): MRI, diffusion, block face, Nissl, H&E, two immunostains, Nissl
+    face: live([[2.245, 0], [2.257, 1], [2.275, 1], [2.287, 2], [2.305, 2], [2.317, 3], [2.335, 3], [2.347, 4],
+                [2.365, 4], [2.377, 5], [2.395, 5], [2.407, 6], [2.425, 6], [2.437, 7]]),
+    hist: live([[2.425, 0], [2.437, 1], [2.457, 1], [2.467, 0]]),           // the lab's outline of neuronal loss
+  };
+  K.v = (t) => (t < 2.5 ? STROKE.v(t) : 1 + chainV(t));
+  const STROKE_STEPS = [
+    [0, 'The stroke', 'A left middle cerebral artery stroke, bright on diffusion MRI 11 days before death: most of it in the parieto-occipital lobe, some in the frontal lobe.'],
+    [2.09, 'Five blocks and the cerebellum', 'After death the brain was scanned, then cut into blocks along the left-right axis.'],
+    [2.19, 'Ex vivo MRI', 'One sagittal face through the stroke, on the post-mortem scan. The lime outline is the lesion on diffusion MRI, carried from life.'],
+    [2.25, 'Diffusion MRI, in life', 'The same plane on the diffusion scan 11 days before death, registered to the post-mortem one: the injured tissue is bright.'],
+    [2.28, 'Block face', 'The same plane, photographed as the block was cut, before any section could tear or stretch.'],
+    [2.31, 'Nissl', 'The stained section itself, at 60 µm: the stain marks cell bodies, so where the stroke killed neurons little of it is left.'],
+    [2.34, 'H&E', 'Two sections on, in H&E. The change is subtler here: the injured tissue stains paler.'],
+    [2.37, 'Immunostain: blood–brain barrier', 'Half a millimetre on, a blood protein that stays inside healthy vessels: brown where the barrier broke down, across the diffusion lesion and into the cortex above it.'],
+    [2.4, 'Immunostain: macrophages', 'Under a millimetre on, the cells that clear away dead tissue: they gather in and around the outline.'],
+    [2.43, 'One space', 'Lime: the lesion on diffusion MRI. White: neuronal loss the lab outlined by hand on a Nissl section half a millimetre away, mostly in the cortex above the lime: about a third of it lies inside. Across the whole brain, injury in histology exceeds the diffusion lesion by 39% (Nanjappa et al., preprint).'],
+  ];
   // what the registration scene is doing, in words, where it starts
   const STEPS = [
     [3.9, 'Block face', 'The whole brain in its block. Illustrated: BFI images are not in this demo, so the histology volume is recoloured.'],
@@ -260,7 +298,14 @@
   ];
   const ARM = 0.62;
 
-  function barLength(t) {                           // R(t), millimetres
+  // close on the stroke: the field shrinks to the lesion on the face (stage.strokeFocus: v, w, half size, mm)
+  const strokeZoom = (t) => {
+    if (t < 2.2 || t > 2.48) return 1;
+    const k = clamp(stage.strokeFocus()[2] * 1.4 / stops[2].R, 0.35, 1);
+    return lerp(1, k, STROKE.zoom(t));
+  };
+  function barLength(t) { return ruler(t) * strokeZoom(t); }
+  function ruler(t) {                               // R(t), millimetres
     const i = Math.min(N - 1, Math.floor(t)), f = t - i;
     const here = stops[i].R, creep = i < N - 2 ? 0.97 : 1;
     if (f <= 0.5 || i === N - 1) return here * lerp(1, creep, Math.min(1, f * 2));
@@ -355,9 +400,9 @@
     s.copy.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
   }
 
-  const gwValue = $('#gw-value'), gwItems = [...document.querySelectorAll('.gw li')], CHAIN_WEEKS = [24, 24, 22, 21, 17, 14, 17, 21, 22, 24];
-  let lastGw = '', lastStep = null;
-  const regTitle = $('#reg-title'), regText = $('#reg-text');
+  const gwValue = $('#gw-value'), gwItems = [...document.querySelectorAll('.gw li')], CHAIN_WEEKS = [24, 24, 24, 22, 21, 17, 14, 17, 21, 22, 24];
+  let lastGw = '', lastStep = null, lastStroke = null;
+  const regTitle = $('#reg-title'), regText = $('#reg-text'), strokeTitle = $('#stroke-title'), strokeText = $('#stroke-text');
   const fibres = window.createFibres($('#fibres'), 'assets/img/myelin/streamlines_section.webp');
   const bridgeEl = $('#bridge');
 
@@ -391,16 +436,19 @@
       }
     }
     const v = K.v(t);
-    const gw = CHAIN_WEEKS[clamp(Math.round(v), 0, 9)];
+    const gw = CHAIN_WEEKS[clamp(Math.round(v), 0, 10)];
     if (String(gw) !== lastGw) {
       lastGw = String(gw); gwValue.textContent = lastGw;
       gwItems.forEach((li) => li.classList.toggle('on', +li.dataset.gw <= gw));
     }
     let step = STEPS[0];
-    for (const x of STEPS) if (t >= x[0]) step = x;
+    for (const x of STEPS) if (clock(t) >= x[0]) step = x;
     if (step !== lastStep) { lastStep = step; regTitle.textContent = step[1]; regText.textContent = step[2]; }
+    let chapter = STROKE_STEPS[0];
+    for (const x of STROKE_STEPS) if (t >= x[0]) chapter = x;
+    if (chapter !== lastStroke) { lastStroke = chapter; strokeTitle.textContent = chapter[1]; strokeText.textContent = chapter[2]; }
     const hasFibres = K.fibres(t);
-    fibres.set(hasFibres, t, F / 2, K.fibreGrow(t), K.fibreTint(t));
+    fibres.set(hasFibres, clock(t), F / 2, K.fibreGrow(t), K.fibreTint(t));
     const bridge = flight ? 0 : K.bridge(t);
     bridgeEl.style.opacity = bridge.toFixed(3);
     bridgeEl.style.visibility = bridge > 0.004 ? 'visible' : 'hidden';
@@ -416,12 +464,12 @@
 
   function camera(t, now) {
     const R = barLength(t), F = 2 * R;
-    const side = narrow ? K.sideN(t) : K.side(t);
+    const side = narrow ? K.sideN(t) : K.side(t) + STROKE.shift(t);
     const off = [sideVec[0] * side, sideVec[1] * side];
     const roll = K.roll(t) * stage.theta();
     const centre = stage.sectionCentre(), goal = stage.cellTarget();
     let view;
-    if (t <= 5) {
+    if (clock(t) <= 5) {
       view = [centre[0] - off[0] * F, centre[1] - off[1] * F];
     } else {
       // from stop 4 on, the camera is defined by where the target cell sits on screen; that keeps the zoom
@@ -435,11 +483,12 @@
     }
     const stretch = K.stretch(t);
     const alive = !STILL;
+    const zoom = t > 2.2 && t < 2.48 ? STROKE.zoom(t) : 0, focus = stage.strokeFocus();
     let driftAz = 0;
     if (alive) {
       const clip = K.clip(t);
-      driftAz = Math.sin(now * 0.00012) * 6 * (1 - clip);
-      if (t > 4.98) {                               // under the lens the slide never sits perfectly still
+      driftAz = Math.sin(now * 0.00012) * 6 * (1 - clip) * (1 - zoom);       // a face looked at straight on holds still
+      if (clock(t) > 4.98) {                        // under the lens the slide never sits perfectly still
         const a = now * 0.00021, k = F * 0.0035 * (1 - stretch);
         view = [view[0] + Math.cos(a) * k, view[1] + Math.sin(a * 1.3) * k];
       }
@@ -449,13 +498,15 @@
     return {
       F, roll, view, narrow, stretch,
       offX: off[0], offY: off[1] + (narrow ? 0 : K.benchY(t)),
-      az: K.az(t) + driftAz + orbit.az * play, el: clamp(K.el(t) + orbit.el * play, -70, 70),
+      az: K.az(t) + STROKE.az(t) + driftAz + orbit.az * play, el: clamp(K.el(t) + STROKE.el(t) + orbit.el * play, -70, 70),
       fold: K.fold(t),
-      bench: t > 2.7 && t < 4.5 ? benchState(t) : null,
-      target: [stage.planeX() * on, -centre[1] * on, centre[0] * on],
+      bench: clock(t) > 2.7 && clock(t) < 4.5 ? benchState(t) : null,
+      stroke: t > 1.9 && t < 2.5 ? { glass: STROKE.glass(t), spread: STROKE.spread(t), drop: STROKE.drop(t), lift: STROKE.lift(t), face: STROKE.face(t), hist: STROKE.hist(t) } : null,
+      // the lesion sits a little high, clear of the step's text below it
+      target: [stage.planeX() * on, -centre[1] * on + (focus[0] - 0.15 * focus[2]) * zoom, centre[0] * on + focus[1] * zoom],
       cut: K.cut(t), hd: K.hd(t), clip: K.clip(t), v: K.v(t),
       volW: K.volW(t), faceW: K.faceW(t), nisW: K.nisW(t),
-      dim: K.dim(t), scrim: K.scrim(t),
+      dim: K.dim(t), scrim: K.scrim(t) * (1 - 0.85 * STROKE.clear(t)),
     };
   }
 
@@ -540,7 +591,7 @@
   const endDrag = () => { drag = null; hitArea.classList.remove('dragging'); };
   hitArea.addEventListener('pointerup', endDrag); hitArea.addEventListener('pointercancel', endDrag);
 
-  const tagH = $('#tag-hist'), tagM = $('#tag-mri'), regStop = $('#registration');
+  const tagH = $('#tag-hist'), tagM = $('#tag-mri'), regStop = $('#registration'), strokeStop = $('#stroke');
   function placeTags(cam) {
     const px = S / cam.F, cx = W / 2 + cam.offX * S, cy = H / 2 + cam.offY * S, sep = (narrow ? 37 : 41) * px, top = 44 * px;
     const at = (el, x, y) => { el.style.transform = `translate3d(${x.toFixed(0)}px,${y.toFixed(0)}px,0) translateX(-50%)`; };
@@ -556,7 +607,7 @@
       histX: K.histX(t) * (narrow ? 0.9 : 1), mriX: K.mriX(t) * (narrow ? 0.9 : 1), mriOn: K.mriOn(t),
       cut: { ...A, amount: wms > 0.001 ? wms : reg, glow: K.glow(t) },
       blade: K.blade(t), gap: K.gap(t), jitter: gone ? K.jitter(t) : 0,
-      wave: t < 4.14 ? K.blockFace(t) : K.wave(t),
+      wave: clock(t) < 4.14 ? K.blockFace(t) : K.wave(t),
       knife: K.knife(t), checker: K.checker(t), mis: K.mis(t),
     };
   }
@@ -583,7 +634,8 @@
 
     stepShow(now);
     if (fibres.running()) needDraw = true;
-    const idle = !STILL && t < N - 2;
+    // at rest the page keeps drawing for the drift, except on the stroke brain's face, which does not drift
+    const idle = !STILL && t < N - 2 && !(t > 2.23 && t < 2.457);
     if (!moving && !needDraw && !settling && !idle) return;
     if (!moving && !needDraw && !settling && now - lastDrawn < 45) return;    // about 20 fps at rest
     needDraw = false; lastDrawn = now;
@@ -593,7 +645,8 @@
     updatePage(t, cam.F);
     fibres.draw(now);
     placeTags(cam);
-    regStop.classList.toggle('compact', t > 4.06);
+    regStop.classList.toggle('compact', clock(t) > 4.06);
+    strokeStop.classList.toggle('compact', t > 2.09);
     settling = stage.draw(cam, now) || false;
 
     // keep it smooth on slow machines, measured on the real frame rhythm while moving
@@ -636,6 +689,7 @@
   window.__dive = {
     go: (i) => fly(i, i),
     t: (x) => { flight = null; scrollTo(0, scrollOfT(x)); },
+    strokeReady: () => stage.strokeReady(),
     state: () => ({ t, R: barLength(t), quality, total, blade: { ...blade }, pct: pctEl.textContent }),
     geom: stage.geom,
   };

@@ -1,0 +1,32 @@
+{
+ "grid": [
+  314,
+  194,
+  360
+ ],
+ "voxel_mm": 0.5,
+ "per": 16,
+ "cols": 4,
+ "files": [
+  "s000.webp",
+  "s001.webp",
+  "s002.webp",
+  "s003.webp",
+  "s004.webp",
+  "s005.webp",
+  "s006.webp",
+  "s007.webp",
+  "s008.webp",
+  "s009.webp",
+  "s010.webp",
+  "s011.webp",
+  "s012.webp",
+  "s013.webp",
+  "s014.webp",
+  "s015.webp",
+  "s016.webp",
+  "s017.webp",
+  "s018.webp",
+  "s019.webp"
+ ]
+}
