@@ -12,7 +12,8 @@ the content and `assets/dive/style.css` for the styling.
 - `assets/dive/stage.js`: WebGL2 ray marching of the volumes, the two-volume bench (histology and MRI) and the
   composite with the flat Nissl levels. `?still` stops the idle motion, `?flat` forces the plain page, which is also
   what visitors without WebGL2 or with reduced motion get.
-- `assets/dive/fibres.js`: the fibre background of the myelin stop, traced from the published streamline figure.
+- `assets/dive/fibres.js`: the fibre background of the myelin stop, traced from the published streamline figure. The
+  fibres grow out of the Nissl field and draw back into it, which bridges the cells and the myelin stop.
 
 ## Data
 
@@ -22,6 +23,8 @@ the content and `assets/dive/style.css` for the styling.
 - `assets/volumes/hist24/`: the 24-week Nissl at 128 µm for the blade's cut face, as WebP sheets of sections, from the
   same 64 µm stack as `dharani_24gw` (`tools/build_hist24_hires.py`). Lost sections are filled and stain is evened out
   against the web volume. Loaded last and only on wide screens; the rest of the bench stays on the 0.36 mm volume.
+- `assets/img/ge/nissl_cells_r.webp`: the deepest Nissl level, lossless at the scan's 0.5 µm per pixel, from the
+  `_lossless.jp2` of the section, with blue carrying the nuclei where red clips (`tools/media_nissl_cells.py`).
 - `assets/img/`: section images, zoom levels and renders. Immunostained and myelin images are shown without marker names.
 - `tools/`: the scripts that made these files (paths are local to the machines they ran on).
 

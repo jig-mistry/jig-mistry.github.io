@@ -404,7 +404,7 @@ uniform vec2 mapB[5];
 uniform float layWeight[5];
 uniform vec3 densCurve;                // bias, gain, gamma: Nissl brightness -> density
 uniform vec2 cellSize;
-uniform float cellMag, pixAmount, stretchAmount;
+uniform float cellMag, pixAmount, stretchAmount, deepCurve;
 uniform vec2 stretchRange;
 out vec4 fragColour;
 ${RAMP}
@@ -421,25 +421,26 @@ float inside(vec2 uv) {
 float nisslDensity(float lum) {
   return pow(clamp((1.0 - lum - densCurve.x) * densCurve.y, 0.0, 1.0), densCurve.z);
 }
+// under the lens: the curve above calls every nucleus simply "stained" and neighbours merge into one white mass,
+// so spread the darkest part of the stain instead, where the chromatin is
+float cellDensity(float lum) {
+  return mix(nisslDensity(lum), 0.9 * pow(clamp((0.85 - lum) / 0.85, 0.0, 1.0), 2.6), deepCurve);   // below white: it would go grey under the scrim
+}
 void over(inout vec3 col, sampler2D tex, vec2 uv, float w) {
   vec4 c = texture(tex, uv);
-  col = mix(col, ramp(nisslDensity(c.r)), c.a * inside(uv) * w);
+  col = mix(col, ramp(cellDensity(c.r)), c.a * inside(uv) * w);
 }
-// smooth magnification: four bilinear taps of a cubic B-spline
+// magnification: Catmull-Rom passes through the scan's own pixels, so it adds no blur of its own
 vec4 cubicTap(sampler2D tex, vec2 uv, vec2 size) {
   vec2 st = uv * size - 0.5;
   vec2 i = floor(st), f = st - i;
-  vec2 f2 = f * f, f3 = f2 * f;
-  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
-  vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
-  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
-  vec2 w3 = f3 / 6.0;
-  vec2 g0 = w0 + w1, g1 = w2 + w3;
-  vec2 p0 = (i - 0.5 + w1 / g0) / size;
-  vec2 p1 = (i + 1.5 + w3 / g1) / size;
-  vec4 a = textureLod(tex, vec2(p0.x, p0.y), 0.0) * g0.x + textureLod(tex, vec2(p1.x, p0.y), 0.0) * g1.x;
-  vec4 b = textureLod(tex, vec2(p0.x, p1.y), 0.0) * g0.x + textureLod(tex, vec2(p1.x, p1.y), 0.0) * g1.x;
-  return a * g0.y + b * g1.y;
+  vec2 wx[4] = vec2[4](f * (-0.5 + f * (1.0 - 0.5 * f)), 1.0 + f * f * (-2.5 + 1.5 * f),
+                       f * (0.5 + f * (2.0 - 1.5 * f)), f * f * (-0.5 + 0.5 * f));
+  ivec2 at = ivec2(i) - 1, top = ivec2(size) - 1;
+  vec4 c = vec4(0.0);
+  for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++)
+    c += texelFetch(tex, clamp(at + ivec2(x, y), ivec2(0), top), 0) * wx[x].x * wx[y].y;
+  return clamp(c, 0.0, 1.0);
 }
 
 void main() {
@@ -466,7 +467,7 @@ void main() {
       ivec2 ip = clamp(ivec2(floor(texel)), ivec2(0), ivec2(cellSize) - 1);
       c = mix(c, texelFetch(layD, ip, 0), pixAmount);
     }
-    float d = nisslDensity(c.r);
+    float d = cellDensity(c.r);
     float a = c.a * inside(uv) * layWeight[4];
     if (stretchAmount > 0.001) {
       // inside the nucleus the pixels differ only slightly: spread them so they read as separate squares
@@ -593,18 +594,19 @@ void main() {
     // the final pixel, in the coordinates of the deepest image (0..1), and its local contrast range
     const cell = { u: 0.5, v: 0.5, w: 1600, h: 1600, lo: 0.75, hi: 0.95 };
 
-    // darkest cluster near the middle of the cell image: a nucleus; then the darkest pixel's neighbourhood
-    function pickCell(img, w, h) {
+    // darkest cluster near the given nucleus (or the middle of the cell image); then the darkest pixel's neighbourhood
+    function pickCell(img, w, h, at) {
       try {
         const R = 130, side = 2 * R;
         const c = document.createElement('canvas'); c.width = c.height = side;
         const x = c.getContext('2d', { willReadFrequently: true });
-        const x0 = Math.round(w / 2 - R), y0 = Math.round(h / 2 - R);
+        const x0 = Math.round((at ? at[0] : 0.5) * w - R), y0 = Math.round((at ? at[1] : 0.5) * h - R);
+        const edge = at ? R - 14 : 12;
         x.drawImage(img, -x0, -y0);
         const px = x.getImageData(0, 0, side, side).data;
         const dark = (i, j) => { const o = (j * side + i) * 4; return px[o + 3] > 200 ? 255 - px[o] : 0; };
         let best = -1, bi = R, bj = R;
-        for (let j = 12; j < side - 12; j += 2) for (let i = 12; i < side - 12; i += 2) {
+        for (let j = edge; j < side - edge; j += 2) for (let i = edge; i < side - edge; i += 2) {
           let sum = 0;
           for (let b = -4; b <= 4; b++) for (let a = -4; a <= 4; a++) sum += dark(i + a, j + b);
           if (sum > best) { best = sum; bi = i; bj = j; }
@@ -705,7 +707,7 @@ void main() {
         for (let i = 0; i < levels.length; i++) {
           const r = await greyImage(levels[i].src);
           levels[i].tex = r.tex; levels[i].w = r.w; levels[i].h = r.h;
-          if (i === levels.length - 1) { pickCell(r.img, r.w, r.h); cell.w = r.w; cell.h = r.h; }
+          if (i === levels.length - 1) { pickCell(r.img, r.w, r.h, spec.cell); cell.w = r.w; cell.h = r.h; }
           opts.onChange();
         }
       } catch (e) { console.warn('stage:', e); }
@@ -961,7 +963,8 @@ void main() {
       gl.uniform3f(C.densCurve, 0.08, 1.4, 0.8);
       gl.uniform2f(C.cellSize, cell.w, cell.h);
       gl.uniform1f(C.cellMag, mag);
-      gl.uniform1f(C.pixAmount, smooth(6, 14, mag));
+      gl.uniform1f(C.deepCurve, 1 - smooth(750, 2250, cam.F / srcMm));     // by field of view, so a phone matches a laptop
+      gl.uniform1f(C.pixAmount, smooth(14, 30, mag));
       gl.uniform1f(C.stretchAmount, cam.stretch);
       gl.uniform2f(C.stretchRange, cell.lo, cell.hi);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

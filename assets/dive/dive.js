@@ -223,9 +223,13 @@
     benchY: track([[2.6, 0], [2.9, 0.055], [4.47, 0.055], [4.5, 0]]),
     sideN: track([[2.55, 1], [2.85, 0.22], [4.47, 0.22], [4.5, 1], [11.5, 1], [12, 0]]),
     scrim: track([[0.6, 0], [1, 0.5], [2.5, 0.5], [2.8, 0], [4.45, 0], [4.8, 0.8], [11.4, 0.85], [12, 0]]),
-    dim: track([[5, 0], [5.15, 0.45], [5.5, 0.45], [5.75, 0], [7.8, 0], [8, 0.6], [8.5, 0.6], [8.72, 1], [9.6, 1], [9.85, 0]]),
+    dim: track([[5, 0], [5.15, 0.45], [5.5, 0.45], [5.75, 0], [7.8, 0], [8, 0.6], [8.5, 0.6], [8.6, 0.3], [8.84, 0.3], [9.02, 1], [9.56, 1], [9.66, 0.3], [9.76, 0.3], [9.85, 0]]),
     stretch: track([[11.55, 0], [11.98, 1]]),
-    fibres: track([[8.6, 0], [8.85, 1], [9.55, 1], [9.8, 0]]),
+    // the bridge: fibres grow out of the cells in the stain's violet, turn to direction colours, then draw back in
+    fibres: track([[8.54, 0], [8.6, 1], [9.66, 1], [9.8, 0]]),
+    fibreGrow: track([[8.58, 0], [8.94, 1], [9.56, 1], [9.76, 0]]),
+    fibreTint: track([[8.74, 1], [9.0, 0], [9.56, 0], [9.7, 1]]),
+    bridge: track([[8.62, 0], [8.67, 1], [8.78, 1], [8.83, 0]]),
     // the bench: t 2.7 .. 4.5
     histX: track([[2.72, 0], [3, -41], [3.55, -41], [3.85, 0], [4.26, 0], [4.31, -41], [4.355, -41], [4.39, 0]]),
     mriX: track([[2.72, 34], [3, 41], [3.55, 41], [3.85, 150], [4.24, 150], [4.31, 41], [4.355, 41], [4.39, 0]]),
@@ -355,6 +359,7 @@
   let lastGw = '', lastStep = null;
   const regTitle = $('#reg-title'), regText = $('#reg-text');
   const fibres = window.createFibres($('#fibres'), 'assets/img/myelin/streamlines_section.webp');
+  const bridgeEl = $('#bridge');
 
   function updatePage(t, F) {
     const IN = 0.2, OUT = 0.2;
@@ -395,7 +400,10 @@
     for (const x of STEPS) if (t >= x[0]) step = x;
     if (step !== lastStep) { lastStep = step; regTitle.textContent = step[1]; regText.textContent = step[2]; }
     const hasFibres = K.fibres(t);
-    fibres.set(hasFibres, t);
+    fibres.set(hasFibres, t, F / 2, K.fibreGrow(t), K.fibreTint(t));
+    const bridge = flight ? 0 : K.bridge(t);
+    bridgeEl.style.opacity = bridge.toFixed(3);
+    bridgeEl.style.visibility = bridge > 0.004 ? 'visible' : 'hidden';
     setActive(clamp(Math.floor(t + 0.25), 0, N - 1));
     const whole = Math.floor(t), part = t - whole;
     const stepped = whole + smooth(0.5, 1, part);
