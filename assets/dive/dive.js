@@ -189,6 +189,7 @@
     onChange: () => { needDraw = true; },
     onLost: () => { dead = true; plainPage(); },
     onHistology: () => { printTarget(); },
+    onFine: (mm) => { tagH.textContent = `Nissl histology, ${Math.round(mm * 1000)} µm`; tagM.textContent = 'T1 MRI, 0.29 × 0.29 × 0.5 mm'; },
     mri: 'assets/volumes/dharani_24gw_mri.bin.gz',
   });
   if (!stage) { plainPage(); return; }
@@ -619,7 +620,8 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
   addEventListener('load', relayout);
   readBlade(); syncInputs();
-  stage.load().catch((e) => { console.warn('stage:', e); dead = true; plainPage(); });
+  const saveData = navigator.connection && navigator.connection.saveData;
+  stage.load(narrow || saveData ? null : 'assets/volumes/hist24/').catch((e) => { console.warn('stage:', e); dead = true; plainPage(); });
   requestAnimationFrame(frame);
 
   // for the browser checks: __dive.go(4), __dive.t(3.85), __dive.state()

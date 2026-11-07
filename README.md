@@ -19,6 +19,9 @@ the content and `assets/dive/style.css` for the styling.
 - `assets/volumes/`: BigBrain (200 µm release, downsampled to 0.6 mm) and the five DHARANI fetal brains (0.36 mm),
   as gzip'd uint8 pairs (density, depth below the surface). See `brains.json`. `dharani_24gw_mri.bin.gz` is the T1 of
   the 24-week brain on the same grid: the native scan, placed rigidly, no scale or warp (`tools/build_mri24_native.py`).
+- `assets/volumes/hist24/`: the 24-week Nissl at 128 µm for the blade's cut face, as WebP sheets of sections, from the
+  same 64 µm stack as `dharani_24gw` (`tools/build_hist24_hires.py`). Lost sections are filled and stain is evened out
+  against the web volume. Loaded last and only on wide screens; the rest of the bench stays on the 0.36 mm volume.
 - `assets/img/`: section images, zoom levels and renders. Immunostained and myelin images are shown without marker names.
 - `tools/`: the scripts that made these files (paths are local to the machines they ran on).
 

@@ -212,7 +212,8 @@ void main() {
   const BENCH_FRAG = `#version 300 es
 precision highp float;
 precision highp sampler3D;
-uniform sampler3D histVol, mriVol;
+uniform sampler3D histVol, mriVol, fineVol;
+uniform float fineOn;
 uniform vec3 box, camPos, camX, camY, camZ, lightDir;
 uniform vec2 lensSpread, screenOffset;
 uniform float marchStep;
@@ -253,11 +254,12 @@ vec2 texAt(sampler3D v, vec3 p) {
 vec3 misMap(vec3 p) {
   return misRot * p + misOff + misWarp * vec3(sin(p.y * 6.0), sin(p.z * 5.0 + 1.0), sin(p.x * 5.5 + 2.0));
 }
+vec3 histQ;     // where histAt last read the histology
 vec2 histAt(vec3 p, out float slab) {
   float x = p.x - slabShift;
   vec3 q = vec3(x, p.yz);
   slab = floor((x + box.x) / slabT);
-  if (slabG < 1e-5 && jitter < 1e-4) return texAt(histVol, misMap(q));
+  if (slabG < 1e-5 && jitter < 1e-4) { histQ = misMap(q); return texAt(histVol, histQ); }
   float fb = floor(slabB);
   float solid = slabB >= slabN ? 1e9 : -box.x + (fb + 1.0) * slabT;
   if (x < solid) {
@@ -272,7 +274,8 @@ vec2 histAt(vec3 p, out float slab) {
   float c = cos(a), s = sin(a);
   vec2 yz = q.yz - o;
   q.yz = vec2(c * yz.x - s * yz.y, s * yz.x + c * yz.y);
-  return texAt(histVol, misMap(q));
+  histQ = misMap(q);
+  return texAt(histVol, histQ);
 }
 // the MRI is the fixed reference: native shape, read as it is, never moved
 vec2 mriAt(vec3 p) { return texAt(mriVol, p); }
@@ -322,6 +325,8 @@ vec4 marchObj(bool isMri, vec3 ro, vec3 dir, vec3 pos, out float hit) {
       vec2 v = isMri ? mriAt(p) : histAt(p, slab);
       float d = v.r;
       if (d > 0.01) {
+        // the cut face reads the fine stack, stored section by section: the volume only says where tissue is
+        if (face && !isMri && fineOn > 0.001) d = mix(d, texture(fineVol, (histQ / (2.0 * box) + 0.5).zyx).r, fineOn);
         float stain = isMri ? 1.0 : smoothstep(0.0, 2.0, wave - slab);
         vec3 inner = isMri ? mriRamp(d) : mix(blockRamp(d), ramp(d), stain);
         if (face) {
@@ -512,13 +517,13 @@ void main() {
     catch (e) { console.warn('stage:', e); return null; }
     const V = slots(volProg), C = slots(compProg), B = slots(benchProg);
 
-    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 7-11 flat layers; 15 scratch
+    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 7-11 flat layers; 12 fine histology; 15 scratch
     const SCRATCH = 15;
     gl.useProgram(volProg);
     gl.uniform1i(V.brainFrom, 0); gl.uniform1i(V.brainTo, 1); gl.uniform1i(V.planeImage, 2);
     gl.uniform1i(V.wedgeImageX, 3); gl.uniform1i(V.wedgeImageY, 4); gl.uniform1i(V.wedgeImageZ, 5);
     gl.useProgram(benchProg);
-    gl.uniform1i(B.histVol, 0); gl.uniform1i(B.mriVol, 1);
+    gl.uniform1i(B.histVol, 0); gl.uniform1i(B.mriVol, 1); gl.uniform1i(B.fineVol, 12);
     gl.useProgram(compProg);
     gl.uniform1i(C.volTex, 6); gl.uniform1i(C.layFace, 7); gl.uniform1i(C.layA, 8);
     gl.uniform1i(C.layB, 9); gl.uniform1i(C.layC, 10); gl.uniform1i(C.layD, 11);
@@ -630,7 +635,48 @@ void main() {
       return GEOM.nisslToPlane(...nisslPoint(r[0] + (r[2] - r[0]) * cell.u, r[1] + (r[3] - r[1]) * cell.v));
     }
 
-    async function load() {
+    // the histology at section resolution, for the blade's cut face only: sheets of sections, one 3D texture.
+    // Layers run along the sectioning axis, so the shader reads it as .zyx
+    async function loadFine(dir) {
+      const m = await fetch(dir + 'index.json').then((r) => r.json());
+      const [nu, nv, nw] = m.grid;
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+      gl.bindTexture(gl.TEXTURE_3D, tex);
+      gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R8, nw, nv, nu);
+      if (gl.getError() !== gl.NO_ERROR) throw new Error('no room for the fine histology');
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
+                            [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+                            [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_3D, k, v);
+      const c = document.createElement('canvas');
+      c.width = nw * m.cols; c.height = nv * m.per / m.cols;
+      const x = c.getContext('2d', { willReadFrequently: true });
+      const sheet = (k) => { const i = new Image(); i.src = dir + m.files[k]; return i.decode().then(() => i); };
+      const section = new Uint8Array(nw * nv);
+      let next = sheet(0);
+      for (let k = 0; k < m.files.length; k++) {
+        const img = await next;
+        if (k + 1 < m.files.length) next = sheet(k + 1);
+        x.drawImage(img, 0, 0);
+        const px = x.getImageData(0, 0, c.width, c.height).data;
+        gl.activeTexture(gl.TEXTURE0 + SCRATCH);
+        gl.bindTexture(gl.TEXTURE_3D, tex);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        for (let j = 0; j < m.per && k * m.per + j < nu; j++) {
+          const ox = (j % m.cols) * nw, oy = Math.floor(j / m.cols) * nv;
+          for (let r = 0, q = 0; r < nv; r++) {
+            let o = ((oy + r) * c.width + ox) * 4;
+            for (let i = 0; i < nw; i++, o += 4) section[q++] = px[o];
+          }
+          gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, k * m.per + j, nw, nv, 1, gl.RED, gl.UNSIGNED_BYTE, section);
+        }
+      }
+      bench.fine = { tex, t0: performance.now() };
+      if (opts.onFine) opts.onFine(m.voxel_mm);
+      opts.onChange();
+    }
+
+    async function load(fine) {
       const base = ASSETS + 'volumes/';
       const manifest = await fetch(base + 'brains.json').then((r) => r.json());
       for (const m of manifest.brains) vols[m.id] = { meta: m, half: m.extent_mm.map((x) => x * MM / 2), tex: null };
@@ -671,6 +717,10 @@ void main() {
         opts.onChange();
       } catch (e) { console.warn('stage: no MRI', e); }
       for (const id of ['dharani_22gw', 'dharani_21gw', 'dharani_17gw', 'dharani_14gw']) await fetchVol(id);
+      if (fine) {
+        try { await loadFine(fine); }
+        catch (e) { console.warn('stage: keeping the coarse histology', e); }
+      }
     }
 
     function nearestVol(i) {
@@ -726,18 +776,22 @@ void main() {
     }
 
     // ---- the bench: histology and MRI of the same brain, one camera ----
-    const bench = { hist: null, mri: null };
-    function benchPass(cam) {
+    const bench = { hist: null, mri: null, fine: null };
+    function benchPass(cam, now) {
       const h = vols.dharani_24gw;
       if (!h || !h.tex) return false;
       const k = cam.bench, half = h.half;
-      fitMarch(Math.min(1, 0.85 * quality));
+      // the fine cut face is worth every pixel of the screen; everything else keeps the cheaper buffer
+      fitMarch(bench.fine && k.cut.amount > 0.5 ? Math.min(dpr, 1.5) * quality : Math.min(1, 0.85 * quality));
       gl.useProgram(benchProg);
       gl.bindFramebuffer(gl.FRAMEBUFFER, march.fb);
       gl.viewport(0, 0, march.w, march.h);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, h.tex);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, bench.mri || emptyVol);
+      gl.activeTexture(gl.TEXTURE0 + 12); gl.bindTexture(gl.TEXTURE_3D, bench.fine ? bench.fine.tex : emptyVol);
+      const arrive = bench.fine ? Math.min(1, (now - bench.fine.t0) / 800) : 0;
+      gl.uniform1f(B.fineOn, smooth(0, 1, arrive));
       const { eye, right, up, fwd } = aim(cam);
       const axis = cam.narrow ? up.map((x) => -x) : right;
       gl.uniform3fv(B.camPos, eye); gl.uniform3fv(B.camX, right); gl.uniform3fv(B.camY, up); gl.uniform3fv(B.camZ, fwd);
@@ -772,11 +826,11 @@ void main() {
       gl.uniform1f(B.misWarp, 0.008 * m);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      return { arriving: false };
+      return { arriving: arrive > 0 && arrive < 1 };
     }
 
     function marchPass(cam, now) {
-      if (cam.bench) return benchPass(cam);
+      if (cam.bench) return benchPass(cam, now);
       const i = Math.min(CHAIN.length - 1, Math.floor(cam.v));
       const frac = cam.v - i;
       const va = nearestVol(i), vb = frac < 0.0005 ? va : nearestVol(Math.min(CHAIN.length - 1, i + 1));   // resting on one brain: only that brain
