@@ -31,6 +31,9 @@ the content and `assets/dive/style.css` for the styling.
   neuronal loss (`tools/fit_hb02_stains.py`). `*_s` are the half-size images phones load.
 - `assets/img/ge/nissl_cells_r.webp`: the deepest Nissl level, lossless at the scan's 0.5 µm per pixel, from the
   `_lossless.jp2` of the section, with blue carrying the nuclei where red clips (`tools/media_nissl_cells.py`).
+- `assets/img/cyto/cortex_zoom.json`, `nissl_cortex*.webp`, `ihc_on_wall.webp`: the cytoarchitecture stop's cortical wall
+  on the same Nissl section as the eminence, its zones read off the stain, and another fetal brain's three-colour
+  immunostained wall turned onto its pia at its own scale (`tools/media_cortex.py`).
 - `assets/img/`: section images, zoom levels and renders. Immunostained and myelin images are shown without marker names.
 - `tools/`: the scripts that made these files (paths are local to the machines they ran on).
 

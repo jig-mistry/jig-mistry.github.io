@@ -166,10 +166,16 @@ html:not(.dive) .hud-bar { display: none; }
 .dive .lens { right: 300px; top: 50%; margin-top: calc(min(52vh, 34vw) / -2); width: min(52vh, 34vw); }
 .dive .lens.rotate { top: auto; bottom: 110px; margin-top: 0; width: min(34vh, 24vw); }
 
-.dive .strip { left: 45vw; right: 280px; bottom: 100px; }
-.dive .strip img { width: 100%; }
-.dive .ihc { right: 300px; top: 7vh; width: min(30vh, 19vw); }
-.dive .ihc img { box-shadow: 0 0 0 1px var(--line); }
+/* the cortical wall's zones, a ruler laid across it from the pia (placed by dive.js) */
+.zones { display: none; }
+.dive .zones { display: flex; align-items: flex-end; height: 0; position: absolute; left: 0; top: 0; transform-origin: 0 0; visibility: hidden; }
+.dive .zones { filter: drop-shadow(0 0 1.5px rgba(8, 7, 15, .95)); }
+.dive .zones span { flex: none; display: flex; align-items: flex-end; justify-content: center; box-sizing: border-box; height: 32px;
+  padding-bottom: 6px; border-left: 1.5px solid var(--mark); border-bottom: 1.5px solid var(--mark); }
+.dive .zones span:last-child { border-bottom-style: dashed; justify-content: flex-start; padding-left: 8px; }
+/* the stain behind is bright and busy: each name sits on its own dark tab */
+.dive .zones b { font: 500 12px/1 var(--mono); color: var(--fg); white-space: nowrap; padding: 4px 7px 5px;
+  background: rgba(8, 7, 15, .86); border-radius: 3px; }
 
 .dive .hud, .dive .rail { opacity: 1; }
 .dive:not(.narrow) .hud { left: auto; right: 290px; }
@@ -211,11 +217,10 @@ html:not(.dive) .hud-bar { display: none; }
 .dive.narrow .stage-note, .dive.narrow .hero .stage-note { top: 34px; right: 12px; bottom: auto; left: 16px; font-size: 10.5px; text-align: left; }
 .dive.narrow .cue { display: none; }
 .dive.narrow .myelin-a { right: auto; left: 50%; top: 5vh; height: 44vh; transform-origin: 0 0; margin-left: -13vh; }
-.dive.narrow .myelin-b, .dive.narrow .ihc, .dive.narrow figcaption { display: none; }
+.dive.narrow .myelin-b, .dive.narrow figcaption, .dive.narrow .zones { display: none; }
 .dive.narrow .reg { left: 16px; right: 16px; top: 7vh; bottom: auto; width: auto; max-width: 54vh; }
 .dive.narrow .lens { left: 50%; right: auto; top: 7vh; margin: 0 0 0 calc(min(40vh, 74vw) / -2); width: min(40vh, 74vw); }
 .dive.narrow .lens.rotate { top: 7vh; bottom: auto; width: min(26vh, 50vw); margin-left: calc(min(26vh, 50vw) / -2); }
-.dive.narrow .strip { left: 16px; right: 16px; top: 8vh; bottom: auto; }
 .narrow:not(.dive) .rail { background: rgba(8, 7, 15, .8); }
 .narrow:not(.dive) .hud { left: 16px; }
 

@@ -39,7 +39,7 @@
     // the stills are the plain page's stand-ins for the stage: the dive never needs them
     const diving = root.classList.contains('dive');
     s.images = s.images.filter((img) => {
-      if (diving && img.classList.contains('flat-only')) return true;
+      if (diving && img.closest('.flat-only')) return true;
       img.src = img.dataset.src; img.removeAttribute('data-src');
       return false;
     });
@@ -230,7 +230,10 @@
     benchY: track([[2.6, 0], [2.9, 0.055], [4.47, 0.055], [4.5, 0]]),
     sideN: track([[2.55, 1], [2.85, 0.22], [4.47, 0.22], [4.5, 1], [11.5, 1], [12, 0]]),
     scrim: track([[0.6, 0], [1, 0.5], [2.5, 0.5], [2.8, 0], [4.45, 0], [4.8, 0.8], [11.4, 0.85], [12, 0]]),
-    dim: track([[5, 0], [5.15, 0.45], [5.5, 0.45], [5.75, 0], [7.8, 0], [8, 0.6], [8.5, 0.6], [8.6, 0.3], [8.84, 0.3], [9.02, 1], [9.56, 1], [9.66, 0.3], [9.76, 0.3], [9.85, 0]]),
+    dim: track([[5, 0], [5.15, 0.45], [5.5, 0.45], [5.75, 0], [7.8, 0], [8, 0.12], [8.5, 0.12], [8.6, 0.3], [8.84, 0.3], [9.02, 1], [9.56, 1], [9.66, 0.3], [9.76, 0.3], [9.85, 0]]),
+    // the cytoarchitecture stop: the stained wall spreads over the cortex from the pia (mm into the wall), then goes
+    stain: track([[8.02, 0], [8.1, 1], [8.42, 1], [8.52, 0]]),
+    wipe: track([[8.02, 0], [8.24, 3.6]]),
     stretch: track([[11.55, 0], [11.98, 1]]),
     // the bridge: fibres grow out of the cells in the stain's violet, turn to direction colours, then draw back in
     fibres: track([[8.54, 0], [8.6, 1], [9.66, 1], [9.8, 0]]),
@@ -306,7 +309,25 @@
     const k = clamp(stage.strokeFocus()[2] * 1.4 / stops[2].R, 0.35, 1);
     return lerp(1, k, STROKE.zoom(t));
   };
-  function barLength(t) { return ruler(t) * strokeZoom(t); }
+  // after the eminence the camera backs out over the section, crosses to its cortical wall and goes in there; it goes
+  // back to the eminence's cells while the myelin stop hides the section. The crossing is a smooth zoom and pan (van Wijk
+  // and Nuij 2003): the field opens up on the way and closes again, the fixed point gliding from one target to the other
+  const stopAt = (id) => stops.findIndex((s) => s.id === id);
+  const CROSS = stopAt('migrating') + 0.5, BACK = stopAt('myelin') + 0.3;
+  function crossing(t) {
+    const c0 = stage.cellTarget(), c1 = stage.cortexTarget(), w0 = 2 * ruler(CROSS), w1 = 2 * ruler(CROSS + 0.5);
+    const e = smoother(clamp((t - CROSS) * 2)), dx = c1[0] - c0[0], dy = c1[1] - c0[1], u1 = Math.hypot(dx, dy);
+    if (u1 < 1e-6) return { at: c0, F: w0 * Math.pow(w1 / w0, e) };
+    const rho = 1.4, r2 = rho * rho;
+    const b = (w, sign) => (w1 * w1 - w0 * w0 + sign * r2 * r2 * u1 * u1) / (2 * w * r2 * u1);
+    const r = (x) => Math.log(-x + Math.sqrt(x * x + 1));
+    const r0 = r(b(w0, 1)), s = e * (r(b(w1, -1)) - r0) / rho;
+    const u = w0 / r2 * (Math.cosh(r0) * Math.tanh(rho * s + r0) - Math.sinh(r0));
+    return { at: [c0[0] + dx * u / u1, c0[1] + dy * u / u1], F: w0 * Math.cosh(r0) / Math.cosh(rho * s + r0) };
+  }
+  const site = (t) => (t > CROSS && t < CROSS + 0.5 ? crossing(t).at
+    : t >= CROSS + 0.5 && t < BACK ? stage.cortexTarget() : stage.cellTarget());
+  function barLength(t) { return t > CROSS && t < CROSS + 0.5 ? crossing(t).F / 2 : ruler(t) * strokeZoom(t); }
   function ruler(t) {                               // R(t), millimetres
     const i = Math.min(N - 1, Math.floor(t)), f = t - i;
     const here = stops[i].R, creep = i < N - 2 ? 0.97 : 1;
@@ -469,7 +490,7 @@
     const side = narrow ? K.sideN(t) : K.side(t) + STROKE.shift(t);
     const off = [sideVec[0] * side, sideVec[1] * side];
     const roll = K.roll(t) * stage.theta();
-    const centre = stage.sectionCentre(), goal = stage.cellTarget();
+    const centre = stage.sectionCentre(), goal = site(t);
     let view;
     if (clock(t) <= 5) {
       view = [centre[0] - off[0] * F, centre[1] - off[1] * F];
@@ -507,7 +528,7 @@
       // the lesion sits a little high, clear of the step's text below it
       target: [stage.planeX(K.slide(t)) * on, -centre[1] * on + (focus[0] - 0.15 * focus[2]) * zoom, centre[0] * on + focus[1] * zoom],
       cut: K.cut(t), hd: K.hd(t), clip: K.clip(t), v: K.v(t),
-      volW: K.volW(t), nisW: K.nisW(t), slide: K.slide(t),
+      volW: K.volW(t), nisW: K.nisW(t), slide: K.slide(t), stain: K.stain(t), wipe: K.wipe(t),
       dim: K.dim(t), scrim: K.scrim(t) * (1 - 0.85 * STROKE.clear(t)),
     };
   }
@@ -601,6 +622,21 @@
     else { at(tagH, cx - sep, cy - top); at(tagM, cx + sep, cy - top); }
   }
 
+  // the cortical wall's zones: a ruler across the wall from the pia, 1 mm down the wall from the stop's fixed point
+  const zonesEl = $('#zones');
+  function placeZones(cam) {
+    const wall = stage.cortexWall(), w = wall ? clamp(cam.stain * 2 - 0.6) : 0;
+    zonesEl.style.opacity = w.toFixed(3);
+    zonesEl.style.visibility = w > 0.004 ? 'visible' : 'hidden';
+    if (w <= 0.004) return;
+    if (!zonesEl.children.length) for (const [name] of wall.zones) zonesEl.appendChild(document.createElement('span')).appendChild(document.createElement('b')).textContent = name;
+    const g = stage.geom, step = (p, a, mm) => [p[0] + a[0] * mm / g.nisslWidth, p[1] + a[1] * mm / g.nisslHeight];
+    const p = step(wall.pia, wall.along, 1), a = stage.toScreen(...p), b = stage.toScreen(...step(p, wall.normal, 1));
+    const per = Math.hypot(b[0] - a[0], b[1] - a[1]), turn = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    zonesEl.style.transform = `translate3d(${a[0].toFixed(1)}px,${a[1].toFixed(1)}px,0) rotate(${turn.toFixed(4)}rad)`;
+    wall.zones.forEach(([, from, to], i) => { zonesEl.children[i].style.width = ((to - from) * per).toFixed(1) + 'px'; });
+  }
+
   function benchState(t) {
     const wms = K.wmsCut(t), reg = K.regCut(t), half = stage.halfMm();
     const A = wms > 0.001 ? axes(blade) : { n: [1, 0, 0], u: [0, 1, 0], v: [0, 0, 1], d: stage.geom.clipx * half[0] };
@@ -650,6 +686,7 @@
     regStop.classList.toggle('compact', clock(t) > 4.06);
     strokeStop.classList.toggle('compact', t > 2.09);
     settling = stage.draw(cam, now) || false;
+    placeZones(cam);
 
     // keep it smooth on slow machines, measured on the real frame rhythm while moving
     if (moving) {
@@ -692,6 +729,7 @@
     go: (i) => fly(i, i),
     t: (x) => { flight = null; scrollTo(0, scrollOfT(x)); },
     strokeReady: () => stage.strokeReady(),
+    cortexReady: () => { const c = stage.cortexWall(); return !!(c && c.overlay.tex); },
     state: () => ({ t, R: barLength(t), quality, total, blade: { ...blade }, pct: pctEl.textContent }),
     geom: stage.geom,
   };

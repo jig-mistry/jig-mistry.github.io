@@ -490,13 +490,17 @@ void main() {
 
   const COMP_FRAG = `#version 300 es
 precision highp float;
-uniform sampler2D volTex, layA, layB, layC, layD;
+uniform sampler2D volTex, layA, layB, layC, layD, layE, layF, layG, layH;
 uniform vec2 canvasSize;
 uniform float shortPx;
 uniform float volWeight, dimAmount, scrimAmount, scrimMode;
-uniform vec4 mapA[4];
-uniform vec2 mapB[4];
-uniform float layWeight[4];
+// A-D: the section, then the eminence down to its cells; E-G: the cortex down to its cells; H: the stained wall over it
+uniform vec4 mapA[8];
+uniform vec2 mapB[8];
+uniform float layWeight[8];
+uniform vec3 cortexCell;               // the deepest cortex image: width, height, magnification
+uniform vec4 wipeLine;                 // the stained wall: its pia in its uv, and mm into the wall per uv
+uniform float wipeAt;                  // how far into the wall it has spread, mm
 uniform vec3 densCurve;                // bias, gain, gamma: Nissl brightness -> density
 uniform vec2 cellSize;
 uniform float cellMag, pixAmount, stretchAmount, deepCurve;
@@ -549,6 +553,20 @@ void main() {
   if (layWeight[0] > 0.001) over(col, layA, place(0, s), layWeight[0]);
   if (layWeight[1] > 0.001) over(col, layB, place(1, s), layWeight[1]);
   if (layWeight[2] > 0.001) over(col, layC, place(2, s), layWeight[2]);
+  if (layWeight[4] > 0.001) over(col, layE, place(4, s), layWeight[4]);
+  if (layWeight[5] > 0.001) over(col, layF, place(5, s), layWeight[5]);
+  if (layWeight[6] > 0.001) {
+    vec2 uv = place(6, s);
+    vec4 c = cortexCell.z > 1.3 ? cubicTap(layG, uv, cortexCell.xy) : texture(layG, uv);
+    col = mix(col, ramp(cellDensity(c.r)), c.a * inside(uv) * layWeight[6]);
+  }
+  if (layWeight[7] > 0.001) {
+    // the stains' own colours, the Nissl faint beneath, spreading from the pia into the wall
+    vec2 uv = place(7, s);
+    vec4 f = texture(layH, uv);
+    float reach = dot(uv - wipeLine.xy, wipeLine.zw);
+    col = mix(col, f.rgb + col * 0.2, f.a * inside(uv) * layWeight[7] * (1.0 - smoothstep(wipeAt - 0.3, wipeAt, reach)));
+  }
   if (layWeight[3] > 0.001) {
     vec2 uv = place(3, s);
     vec4 c = cellMag > 1.3 ? cubicTap(layD, uv, cellSize) : texture(layD, uv);
@@ -609,7 +627,8 @@ void main() {
     const V = slots(volProg), C = slots(compProg), B = slots(benchProg);
 
     // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 8-11 Nissl levels (7-10 hold the
-    // stroke face during the volume pass); 12 fine histology (stroke blocks in the volume pass); 13 stroke MRI; 15 scratch
+    // stroke face during the volume pass); 12 fine histology (stroke blocks in the volume pass); 13 stroke MRI; 15 scratch.
+    // The composite rebinds 2-5 to the cortex levels and the stained wall: every pass binds what it reads
     const SCRATCH = 15;
     gl.useProgram(volProg);
     gl.uniform1i(V.brainFrom, 0); gl.uniform1i(V.brainTo, 1); gl.uniform1i(V.planeImage, 2);
@@ -621,6 +640,7 @@ void main() {
     gl.useProgram(compProg);
     gl.uniform1i(C.volTex, 6); gl.uniform1i(C.layA, 8);
     gl.uniform1i(C.layB, 9); gl.uniform1i(C.layC, 10); gl.uniform1i(C.layD, 11);
+    gl.uniform1i(C.layE, 2); gl.uniform1i(C.layF, 3); gl.uniform1i(C.layG, 4); gl.uniform1i(C.layH, 5);
 
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);
     const blank = gl.createTexture();
@@ -694,6 +714,9 @@ void main() {
     let levels = [{ rect: [0, 0, 1, 1] }, { rect: [0.1807, 0.3425, 0.3191, 0.4971] }, { rect: [0.2291, 0.3966, 0.2706, 0.4430] }, { rect: [0.2443, 0.4136, 0.2554, 0.4260] }];
     // the final pixel, in the coordinates of the deepest image (0..1), and its local contrast range
     const cell = { u: 0.5, v: 0.5, w: 1600, h: 1600, lo: 0.75, hi: 0.95 };
+    // the cortical wall of the same section, for the cytoarchitecture stop (img/cyto/cortex_zoom.json): its levels, the
+    // stained wall laid on it, the stop's fixed point, and its pia, normal and zones
+    let cortex = null;
 
     // darkest cluster near the given nucleus (or the middle of the cell image); then the darkest pixel's neighbourhood
     function pickCell(img, w, h, at) {
@@ -845,6 +868,15 @@ void main() {
         opts.onChange();
       } catch (e) { console.warn('stage: no MRI', e); }
       for (const id of ['dharani_22gw', 'dharani_21gw', 'dharani_17gw', 'dharani_14gw']) await fetchVol(id);
+      try {
+        const spec = await fetch(ASSETS + 'img/cyto/cortex_zoom.json').then((r) => r.json());
+        cortex = { ...spec, levels: spec.levels.map((l) => ({ rect: l.rect, tex: null })), overlay: { rect: spec.overlay.rect, tex: null } };
+        for (let i = 0; i < spec.levels.length; i++) {
+          const r = await greyImage(spec.levels[i].src);
+          Object.assign(cortex.levels[i], { tex: r.tex, w: r.w, h: r.h }); opts.onChange();
+        }
+        cortex.overlay.tex = (await greyImage(spec.overlay.src, true)).tex; opts.onChange();
+      } catch (e) { console.warn('stage: no cortex', e); }
       if (fine) {
         // the 128 um histology is the heaviest thing on the page: not while the stroke brain's face is on screen
         while (opts.holdFine && opts.holdFine()) await new Promise((r) => setTimeout(r, 500));
@@ -1082,7 +1114,8 @@ void main() {
     }
 
     // ---- pass 2 ----
-    const mapA = new Float32Array(16), mapB = new Float32Array(8), layW = new Float32Array(4);
+    const mapA = new Float32Array(32), mapB = new Float32Array(16), layW = new Float32Array(8);
+    let shown = null;                    // the last frame's map from the screen onto the section
 
     // layer maps. p(s) = view + F * rot(roll) * s on the plane, s in short-side units, y down.
     function setMaps(cam) {
@@ -1092,18 +1125,32 @@ void main() {
       const b = rot(-theta, view[0] - a0[0], view[1] - a0[1]);
       const bx = n0[0] + b[0], by = n0[1] + b[1];
       const k = roll - theta, mc = Math.cos(k) * F, ms = Math.sin(k) * F;
-      const viewWide = F * W / S;
-      levels.forEach((l, i) => {
-        const [r0, r1, r2, r3] = l.rect;
-        const sx = 1 / (GEOM.nisslWidth * (r2 - r0)), sy = 1 / (GEOM.nisslHeight * (r3 - r1));
+      const NW = GEOM.nisslWidth, NH = GEOM.nisslHeight, viewWide = F * W / S;
+      shown = { bx, by, mc, ms };
+      const map = (rect, i) => {
+        const [r0, r1, r2, r3] = rect;
+        const sx = 1 / (NW * (r2 - r0)), sy = 1 / (NH * (r3 - r1));
         mapA.set([sx * mc, -sx * ms, sy * ms, sy * mc], i * 4);
         mapB.set([sx * bx - r0 / (r2 - r0), sy * by - r1 / (r3 - r1)], i * 2);
-        const cover = (r2 - r0) * GEOM.nisslWidth / viewWide;
+      };
+      // the view's corners on the section (0..1): a level is not drawn under a finer one that holds all of them
+      const ex = W / S / 2, ey = H / S / 2;
+      const corners = [[-ex, -ey], [ex, -ey], [-ex, ey], [ex, ey]].map(([x, y]) => [(mc * x - ms * y + bx) / NW, (ms * x + mc * y + by) / NH]);
+      const holds = (r) => {
+        const mx = (r[2] - r[0]) * 0.02, my = (r[3] - r[1]) * 0.02;
+        return corners.every(([u, v]) => u > r[0] + mx && u < r[2] - mx && v > r[1] + my && v < r[3] - my);
+      };
+      const within = (a, r) => a[0] >= r[0] && a[1] >= r[1] && a[2] <= r[2] && a[3] <= r[3] && a[2] - a[0] < r[2] - r[0];
+      const all = levels.concat(cortex ? cortex.levels : []);           // 0-3 the eminence's, 4-6 the cortex's
+      layW.fill(0);
+      all.forEach((l, i) => {
+        map(l.rect, i);
+        const cover = (l.rect[2] - l.rect[0]) * NW / viewWide;
         let w = i === 0 ? 1 : smooth(0.12, 0.45, cover);
-        const next = levels[i + 1];
-        if (next && (next.rect[2] - next.rect[0]) * GEOM.nisslWidth / viewWide > 2.2) w = 0;   // fully covered
+        if (all.some((m) => m !== l && m.tex && within(m.rect, l.rect) && holds(m.rect))) w = 0;
         layW[i] = l.tex ? w * cam.nisW : 0;
       });
+      if (cortex && cortex.overlay.tex) { map(cortex.overlay.rect, 7); layW[7] = cam.stain || 0; }
     }
 
     function draw(cam, now) {
@@ -1122,6 +1169,12 @@ void main() {
         gl.activeTexture(gl.TEXTURE8 + i);
         gl.bindTexture(gl.TEXTURE_2D, levels[i] && levels[i].tex ? levels[i].tex : blank);
       }
+      const deep = cortex ? cortex.levels : [];
+      for (let i = 0; i < 3; i++) {
+        gl.activeTexture(gl.TEXTURE2 + i);
+        gl.bindTexture(gl.TEXTURE_2D, deep[i] && deep[i].tex ? deep[i].tex : blank);
+      }
+      gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, cortex && cortex.overlay.tex ? cortex.overlay.tex : blank);
       const srcMm = (levels[3].rect[2] - levels[3].rect[0]) * GEOM.nisslWidth / cell.w;   // mm per source pixel
       const shortPx = S * canvas.width / W;
       const mag = shortPx / (cam.F / srcMm);
@@ -1137,6 +1190,17 @@ void main() {
       gl.uniform3f(C.densCurve, 0.08, 1.4, 0.8);
       gl.uniform2f(C.cellSize, cell.w, cell.h);
       gl.uniform1f(C.cellMag, mag);
+      if (deep[2] && deep[2].tex) {
+        const r = deep[2].rect, mm = (r[2] - r[0]) * GEOM.nisslWidth / deep[2].w;
+        gl.uniform3f(C.cortexCell, deep[2].w, deep[2].h, shortPx / (cam.F / mm));
+      }
+      if (cortex) {
+        // the stained wall spreads from the pia along the wall's normal: its pia in its uv, and mm per uv that way
+        const r = cortex.overlay.rect, du = r[2] - r[0], dv = r[3] - r[1];
+        gl.uniform4f(C.wipeLine, (cortex.pia[0] - r[0]) / du, (cortex.pia[1] - r[1]) / dv,
+          cortex.normal[0] * du * GEOM.nisslWidth, cortex.normal[1] * dv * GEOM.nisslHeight);
+        gl.uniform1f(C.wipeAt, cam.wipe || 0);
+      }
       gl.uniform1f(C.deepCurve, 1 - smooth(750, 2250, cam.F / srcMm));     // by field of view, so a phone matches a laptop
       gl.uniform1f(C.pixAmount, smooth(14, 30, mag));
       gl.uniform1f(C.stretchAmount, cam.stretch);
@@ -1176,6 +1240,14 @@ void main() {
       halfMm: () => (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm.map((x) => x / 2) : [30.6, 37.8, 34.2]),
       setQuality: (q) => { quality = q; },
       planeX: (slide) => lerp(GEOM.clipx, GEOM.nissx, slide) * (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm[0] / 2 : 30.6),
+      cortexTarget: () => (cortex ? GEOM.nisslToPlane(...nisslPoint(...cortex.target)) : cellTarget()),
+      cortexWall: () => cortex,
+      // a point of the section (0..1) where the last frame drew it, CSS pixels
+      toScreen: (u, v) => {
+        if (!shown) return [0, 0];
+        const { bx, by, mc, ms } = shown, dx = u * GEOM.nisslWidth - bx, dy = v * GEOM.nisslHeight - by, f2 = mc * mc + ms * ms;
+        return [W / 2 + (mc * dx + ms * dy) / f2 * S, H / 2 + (mc * dy - ms * dx) / f2 * S];
+      },
       theta: () => GEOM.align.theta,
       geom: GEOM,
     };
