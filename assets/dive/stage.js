@@ -4,8 +4,8 @@
    volume renderer (same volume layout, same cut-away and clip logic, same real sections
    on the cut faces); only the colour is different.
 
-   Pass 2 runs at screen resolution and composites that buffer with the flat histology: the section
-   drawn on the clip plane (face_24gw) and the four nested Nissl levels.  Every source goes through
+   Pass 2 runs at screen resolution and composites that buffer with the flat histology: the four
+   nested Nissl levels, laid on the plane the clip carries them to.  Every source goes through
    the same density -> colour ramp, which is what lets the volume, the section and the cells
    dissolve into each other without a visible change of material.
 
@@ -19,12 +19,11 @@
   const GEOM = {
     nisslWidth: 72.2,                     // data-mm of the Nissl zoomer on the current site
     nisslAspect: 1.1168989802939289,      // nissl_zoom.json
-    faceZ: 68.4, faceY: 75.6,             // dharani_24gw extent in z and y: the face image covers the box
     clipx: -0.42,                         // where face_24gw sits, fraction of the half width
-    // Similarity that lays the Nissl section over the clip-plane section. Both are the 24-week brain but not
-    // the same plane, so this is matched by eye on the band of the eminence arching over the striatum.
+    nissx: 0.1399,                        // where the Nissl section (SE 1138) sits, 17 mm medial of it
+    // Rigid map that lays the Nissl section on the volume's plane at nissx (tools/fit_nissl_plane.py):
     // nissl point n0 (mm from the image's top-left) lands on plane point a0, turned by theta.
-    align: { n0: [32.1, 25.45], a0: [5.67, -5.86], theta: 19.6 * Math.PI / 180 },
+    align: { n0: [36.1, 32.325], a0: [2.273, -0.271], theta: 66.77 * Math.PI / 180 },
   };
   GEOM.nisslHeight = GEOM.nisslWidth / GEOM.nisslAspect;
 
@@ -491,13 +490,13 @@ void main() {
 
   const COMP_FRAG = `#version 300 es
 precision highp float;
-uniform sampler2D volTex, layFace, layA, layB, layC, layD;
+uniform sampler2D volTex, layA, layB, layC, layD;
 uniform vec2 canvasSize;
 uniform float shortPx;
 uniform float volWeight, dimAmount, scrimAmount, scrimMode;
-uniform vec4 mapA[5];
-uniform vec2 mapB[5];
-uniform float layWeight[5];
+uniform vec4 mapA[4];
+uniform vec2 mapB[4];
+uniform float layWeight[4];
 uniform vec3 densCurve;                // bias, gain, gamma: Nissl brightness -> density
 uniform vec2 cellSize;
 uniform float cellMag, pixAmount, stretchAmount, deepCurve;
@@ -547,16 +546,11 @@ void main() {
     vec4 v = texture(volTex, fc / canvasSize);
     col = col * (1.0 - v.a * volWeight) + v.rgb * volWeight;
   }
-  if (layWeight[0] > 0.001) {
-    vec2 uv = place(0, s);
-    vec4 f = texture(layFace, uv);
-    col = mix(col, ramp(f.r), f.a * inside(uv) * layWeight[0]);
-  }
-  if (layWeight[1] > 0.001) over(col, layA, place(1, s), layWeight[1]);
-  if (layWeight[2] > 0.001) over(col, layB, place(2, s), layWeight[2]);
-  if (layWeight[3] > 0.001) over(col, layC, place(3, s), layWeight[3]);
-  if (layWeight[4] > 0.001) {
-    vec2 uv = place(4, s);
+  if (layWeight[0] > 0.001) over(col, layA, place(0, s), layWeight[0]);
+  if (layWeight[1] > 0.001) over(col, layB, place(1, s), layWeight[1]);
+  if (layWeight[2] > 0.001) over(col, layC, place(2, s), layWeight[2]);
+  if (layWeight[3] > 0.001) {
+    vec2 uv = place(3, s);
     vec4 c = cellMag > 1.3 ? cubicTap(layD, uv, cellSize) : texture(layD, uv);
     vec2 texel = uv * cellSize;
     if (pixAmount > 0.001) {
@@ -564,7 +558,7 @@ void main() {
       c = mix(c, texelFetch(layD, ip, 0), pixAmount);
     }
     float d = cellDensity(c.r);
-    float a = c.a * inside(uv) * layWeight[4];
+    float a = c.a * inside(uv) * layWeight[3];
     if (stretchAmount > 0.001) {
       // inside the nucleus the pixels differ only slightly: spread them so they read as separate squares
       float raw = (1.0 - c.r - stretchRange.x) / max(stretchRange.y - stretchRange.x, 0.02);
@@ -614,7 +608,7 @@ void main() {
     catch (e) { console.warn('stage:', e); return null; }
     const V = slots(volProg), C = slots(compProg), B = slots(benchProg);
 
-    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 7-11 flat layers (7-10 hold the
+    // texture units: 0,1 volumes; 2 clip-plane section; 3-5 cut faces; 6 march buffer; 8-11 Nissl levels (7-10 hold the
     // stroke face during the volume pass); 12 fine histology (stroke blocks in the volume pass); 13 stroke MRI; 15 scratch
     const SCRATCH = 15;
     gl.useProgram(volProg);
@@ -625,7 +619,7 @@ void main() {
     gl.useProgram(benchProg);
     gl.uniform1i(B.histVol, 0); gl.uniform1i(B.mriVol, 1); gl.uniform1i(B.fineVol, 12);
     gl.useProgram(compProg);
-    gl.uniform1i(C.volTex, 6); gl.uniform1i(C.layFace, 7); gl.uniform1i(C.layA, 8);
+    gl.uniform1i(C.volTex, 6); gl.uniform1i(C.layA, 8);
     gl.uniform1i(C.layB, 9); gl.uniform1i(C.layC, 10); gl.uniform1i(C.layD, 11);
 
     gl.activeTexture(gl.TEXTURE0 + SCRATCH);
@@ -994,10 +988,12 @@ void main() {
       const isBig = va === vols.bigbrain && vb === va;
       const open = cam.stroke && va === vols.hb02 && vb === va && stroke.meta ? cam.stroke : null;
 
-      // real sections take over as the cut planes arrive, as on the current site
+      // real sections take over as the cut planes arrive, as on the current site; the clip then slides on to the
+      // Nissl section's plane and the eminence's face is left behind
+      const slicePlane = lerp(GEOM.clipx, GEOM.nissx, cam.slide || 0) * half[0];
       let faceOn = 0;
       if (face && is24 && cam.clip > 0.001) {
-        const at = lerp(-half[0] * 1.05, GEOM.clipx * half[0], cam.clip);
+        const at = lerp(-half[0] * 1.05, slicePlane, cam.clip);
         faceOn = 1 - smooth(0, 1, Math.abs(at - GEOM.clipx * half[0]) / (3 * MM));
       }
       let cutOn = 0, arriving = false;
@@ -1066,7 +1062,7 @@ void main() {
       gl.uniform2f(V.screenOffset, cam.offX * 2 * S / W, -cam.offY * 2 * S / H);
       gl.uniform1f(V.wedge, cam.cut);
       gl.uniform3f(V.wedgeSide, Math.sign(off[0]) || 1, Math.sign(off[1]) || 1, Math.sign(off[2]) || 1);
-      gl.uniform1f(V.sliceAmount, cam.clip); gl.uniform1f(V.slicePlane, GEOM.clipx * half[0]);
+      gl.uniform1f(V.sliceAmount, cam.clip); gl.uniform1f(V.slicePlane, slicePlane);
       gl.uniform1f(V.marchStep, Math.max(half[0], half[1], half[2]) * 2 / 300);
       const L = [-0.45, 0.75, 0.5], ll = Math.hypot(...L);
       gl.uniform3f(V.lightDir, L[0] / ll, L[1] / ll, L[2] / ll);
@@ -1086,15 +1082,11 @@ void main() {
     }
 
     // ---- pass 2 ----
-    const mapA = new Float32Array(20), mapB = new Float32Array(10), layW = new Float32Array(5);
+    const mapA = new Float32Array(16), mapB = new Float32Array(8), layW = new Float32Array(4);
 
     // layer maps. p(s) = view + F * rot(roll) * s on the plane, s in short-side units, y down.
     function setMaps(cam) {
-      const { view, F, roll } = cam, c = Math.cos(roll) * F, n = Math.sin(roll) * F;
-      // face: rows are y of the volume (up), columns z
-      const fz = 1 / GEOM.faceZ, fy = -1 / GEOM.faceY;
-      mapA.set([fz * c, -fz * n, fy * n, fy * c], 0);
-      mapB.set([view[0] * fz + 0.5, view[1] * fy + 0.5], 0);
+      const { view, F, roll } = cam;
       // nissl: n(s) = n0 + rot(-theta)(p - a0)
       const { n0, a0, theta } = GEOM.align;
       const b = rot(-theta, view[0] - a0[0], view[1] - a0[1]);
@@ -1104,15 +1096,14 @@ void main() {
       levels.forEach((l, i) => {
         const [r0, r1, r2, r3] = l.rect;
         const sx = 1 / (GEOM.nisslWidth * (r2 - r0)), sy = 1 / (GEOM.nisslHeight * (r3 - r1));
-        mapA.set([sx * mc, -sx * ms, sy * ms, sy * mc], (i + 1) * 4);
-        mapB.set([sx * bx - r0 / (r2 - r0), sy * by - r1 / (r3 - r1)], (i + 1) * 2);
+        mapA.set([sx * mc, -sx * ms, sy * ms, sy * mc], i * 4);
+        mapB.set([sx * bx - r0 / (r2 - r0), sy * by - r1 / (r3 - r1)], i * 2);
         const cover = (r2 - r0) * GEOM.nisslWidth / viewWide;
         let w = i === 0 ? 1 : smooth(0.12, 0.45, cover);
         const next = levels[i + 1];
         if (next && (next.rect[2] - next.rect[0]) * GEOM.nisslWidth / viewWide > 2.2) w = 0;   // fully covered
-        layW[i + 1] = l.tex ? w * cam.nisW : 0;
+        layW[i] = l.tex ? w * cam.nisW : 0;
       });
-      layW[0] = face ? cam.faceW : 0;
     }
 
     function draw(cam, now) {
@@ -1127,7 +1118,6 @@ void main() {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, marched ? march.tex : blank);
-      gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, face ? face.tex : blank);
       for (let i = 0; i < 4; i++) {
         gl.activeTexture(gl.TEXTURE8 + i);
         gl.bindTexture(gl.TEXTURE_2D, levels[i] && levels[i].tex ? levels[i].tex : blank);
@@ -1185,7 +1175,7 @@ void main() {
       strokeFocus: () => (vols.hb02 && vols.hb02.meta.face_focus) || [0, 0],
       halfMm: () => (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm.map((x) => x / 2) : [30.6, 37.8, 34.2]),
       setQuality: (q) => { quality = q; },
-      planeX: () => GEOM.clipx * (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm[0] / 2 : 30.6),
+      planeX: (slide) => lerp(GEOM.clipx, GEOM.nissx, slide) * (vols.dharani_24gw ? vols.dharani_24gw.meta.extent_mm[0] / 2 : 30.6),
       theta: () => GEOM.align.theta,
       geom: GEOM,
     };

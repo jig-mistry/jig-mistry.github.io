@@ -219,9 +219,11 @@
     // position on the chain BigBrain 24 22 21 17 14 17 21 22 24
     v: track([[1.56, 0], [1.8, 1], [1.84, 1], [1.87, 2], [1.9, 3], [1.93, 4], [1.97, 5], [2.04, 5], [2.12, 6], [2.22, 7], [2.32, 8], [2.44, 9]]),
     fold: track([[1.5, 0], [1.6, 1], [2.44, 1], [2.62, 0]]),
-    volW: track([[4.82, 1], [4.9, 0]]),
-    faceW: track([[4.76, 0], [4.84, 1], [4.9, 1], [4.98, 0]]),
-    nisW: track([[4.88, 0], [4.97, 1]]),
+    // facing the eminence's face, the cut moves on through the brain to the Nissl section's plane; the section
+    // appears on the volume's own cut there, and the volume goes
+    slide: track([[4.72, 0], [4.86, 1]]),
+    nisW: track([[4.89, 0], [4.94, 1]]),
+    volW: track([[4.93, 1], [4.97, 0]]),
     roll: track([[5.5, 0], [6, 1]]),                // the section turns upright on the way in
     glide: track([[5.5, 0], [6.5, 1]]),             // the target cell drifts to the clear side of the screen
     side: track([[2.55, 1], [2.85, -0.12], [4.47, -0.12], [4.5, 1], [11.5, 1], [12, 0]]),
@@ -472,9 +474,9 @@
     if (clock(t) <= 5) {
       view = [centre[0] - off[0] * F, centre[1] - off[1] * F];
     } else {
-      // from stop 4 on, the camera is defined by where the target cell sits on screen; that keeps the zoom
-      // pure (one fixed point) and lands on the final pixel exactly
-      const F4 = 2 * barLength(5);
+      // from the one-section stop on (t 6, clock 5), the camera is defined by where the target cell sits on
+      // screen; that keeps the zoom pure (one fixed point) and lands on the final pixel exactly
+      const F4 = 2 * barLength(6);
       const from = [sideVec[0] + (goal[0] - centre[0]) / F4, sideVec[1] + (goal[1] - centre[1]) / F4];
       const g = K.glide(t);
       const onScreen = [lerp(from[0], off[0], g), lerp(from[1], off[1], g)];
@@ -503,9 +505,9 @@
       bench: clock(t) > 2.7 && clock(t) < 4.5 ? benchState(t) : null,
       stroke: t > 1.9 && t < 2.5 ? { glass: STROKE.glass(t), spread: STROKE.spread(t), drop: STROKE.drop(t), lift: STROKE.lift(t), face: STROKE.face(t), hist: STROKE.hist(t) } : null,
       // the lesion sits a little high, clear of the step's text below it
-      target: [stage.planeX() * on, -centre[1] * on + (focus[0] - 0.15 * focus[2]) * zoom, centre[0] * on + focus[1] * zoom],
+      target: [stage.planeX(K.slide(t)) * on, -centre[1] * on + (focus[0] - 0.15 * focus[2]) * zoom, centre[0] * on + focus[1] * zoom],
       cut: K.cut(t), hd: K.hd(t), clip: K.clip(t), v: K.v(t),
-      volW: K.volW(t), faceW: K.faceW(t), nisW: K.nisW(t),
+      volW: K.volW(t), nisW: K.nisW(t), slide: K.slide(t),
       dim: K.dim(t), scrim: K.scrim(t) * (1 - 0.85 * STROKE.clear(t)),
     };
   }
